@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block body %}
+<form method='POST'>
+{% csrf_token %}
+{{ form.as_p }}
+<input type="submit" value="Submit"/>
+</form>
+{{error}}
+{% endblock body %}
+{% block endscript %}
+<script>
+    $('#id_database_type').change(function(){
+        if ($('#id_database_type').val()=='postgres'){
+            $('#id_port').val('5432')
+        }
+        else if ($('#id_database_type').val()=='mysql'){
+            $('#id_port').val('3306')
+        }
+    }).trigger('change')
+</script>
+{% endblock endscript %}

@@ -1,0 +1,10 @@
+replace folder name 'ecommerce' with your project name.
+replace 'myapp' folder's name with your project name.
+
+open folder in vs code.
+now click ctrl + shift + f
+search 'csvdjango' and replace all occurence in all folder with your project name.
+search 'myapp' keyword and replace all occurence in all folders with your app name.
+
+now all changes are made.
+start your project journey

@@ -1,0 +1,10 @@
+<select name='table' id='id_table' required>
+{% for list in tables %}
+<option value='{{list}}'>{{ list }}</option>
+{% endfor %}
+</select>
+<script>
+    $('#id_table').change(function(){
+        console.log($('#id_table').val())
+    }).change()
+</script>

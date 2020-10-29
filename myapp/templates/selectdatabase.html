@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block body %}
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+<select name='database' onchange="selecteddatabase()" id='database' required>
+{% for list in databases %}
+    <option value='{{list}}'>{{ list }}</option>
+{% endfor %}
+</select>
+<div id='tablelist'></div>
+<div id='csvfile'>
+    <label for='name'>Upload File:</label>
+    <input type='file' accept=".csv" name='csvfile'><br>
+    <input type="submit" value='submit'>
+</div>
+</form>
+{{ error }}
+{% endblock body %}
+
+{% block endscript%}
+<script>
+    loadtables = (list) =>{
+        console.log(list);
+        var url = '/createmodel/?name='+list
+        $.ajax({
+            url:url,
+            success: function(data){
+                $('#tablelist').html(data)
+            }
+        })
+    }
+    $(document).ready(function(){
+        $('#database').change()
+    })
+    selecteddatabase =()=>{
+        var database = $('#database').val()
+        loadtables(database)
+    }
+  
+</script>
+
+{% endblock endscript%}

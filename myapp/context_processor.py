@@ -1,0 +1,3 @@
+
+def basecontext(request):
+    return ''
