@@ -1,19 +1,45 @@
 {% extends 'base.html' %}
 {% block body %}
 <form method='POST'>
-{% csrf_token %}
-{{ form.as_p }}
-<input type="submit" value="Submit"/>
+    {% csrf_token %}
+    <center>
+        <table class='table card' style="width:min-content; margin-top: 2%;">
+            <tr>
+                <td>{{form.database_type.label}}</td>
+                <td>{{form.database_type}}</td>
+            </tr>
+            <tr>
+                <td>{{form.username.label}}</td>
+                <td>{{form.username}}</td>
+            </tr>
+            <tr>
+                <td>{{form.password.label}}</td>
+                <td>{{form.password}}</td>
+            </tr>
+            <tr>
+                <td>{{form.host.label}}</td>
+                <td>{{form.host}}</td>
+            </tr>
+            <tr>
+                <td>{{form.port.label}}</td>
+                <td>{{form.port}}</td>
+            </tr>
+            <tr>
+                <td colspan="2"><center><input type="submit" value="Submit" /></center></td>
+            </tr>
+        </table>
+    </center>
+
 </form>
 {{error}}
 {% endblock body %}
 {% block endscript %}
 <script>
-    $('#id_database_type').change(function(){
-        if ($('#id_database_type').val()=='postgres'){
+    $('#id_database_type').change(function () {
+        if ($('#id_database_type').val() == 'postgres') {
             $('#id_port').val('5432')
         }
-        else if ($('#id_database_type').val()=='mysql'){
+        else if ($('#id_database_type').val() == 'mysql') {
             $('#id_port').val('3306')
         }
     }).trigger('change')

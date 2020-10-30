@@ -55,7 +55,7 @@ class DatabaseConfigView(generic.FormView):
 
         except Exception as ex:
             print(ex)
-            return redirect('/connectserver/')
+            return redirect('ConnectServer',error=ex)
         return redirect(reverse('ListDatabaseView'))
 
 # rendering table list into selectdatabase.html from selecttable.html
@@ -120,12 +120,12 @@ def listDatabaseView(request):
     except psycopg2.Error as ex:
         print(ex)
         return redirect('ConnectServer', error=ex)
-    except mysql.connector.Error as ex:
+    except mysql.connector.errors.Error as ex:
         print(ex)
         return redirect('ConnectServer', error=ex)
     except Exception as ex:
         print(ex)
-        return redirect('/')
+        return redirect('ConnectServer', error=ex)
 
     if request.method == 'GET':
         databases = []
@@ -138,7 +138,7 @@ def listDatabaseView(request):
             cursor.execute('SHOW DATABASES')
         for database in cursor.fetchall():
             databases.append(database[0])
-        request.session['user'+'database'] = databases
+        request.session['userdatabase'] = databases
 
         # rendering database list
         return render(request, 'selectdatabase.html', {'databases': databases})
@@ -164,16 +164,14 @@ def listDatabaseView(request):
                 headindex = header.rfind(',')
                 header = header[:headindex]+''+header[headindex+1:]
                 header = header.replace("'", "")
-                print(header)
+               
             else:
                 header = header.replace("'", "")
 
             # seperating values from csv
             for row in user.values:
                 if len(tuple(row)) == 1:
-                    print('--------', tuple(row))
                     row = str(tuple(row))
-                    print(row)
                     rowindex = row.rfind(',')
                     row = row[:rowindex]+''+row[rowindex+1:]
                     data.append(row)
@@ -183,11 +181,9 @@ def listDatabaseView(request):
             data = ','.join(data)
             models.FileUpload.objects.filter(file=fileobject.file.name).first().delete()
             os.remove('media/'+fileobject.file.name)
-            print('--------------deleted')
         except Exception as ex:
             print(ex)
-            return render(request, 'selectdatabase.html', {'databases': request.session['user'+'database'], 'error': 'Error! there is a problem while extracting the file'})
-        print(data)
+            return render(request, 'selectdatabase.html', {'databases': request.session['userdatabase'], 'error': 'Error! there is a problem while extracting the file'})
 
         # inserting csv data into database
         try:
@@ -195,7 +191,6 @@ def listDatabaseView(request):
             if request.session['database_type'] == 'mysql':
                 insertquery = "INSERT INTO %s %s VALUES %s;" % (
                     table, header, data)
-                print(insertquery)
                 databasequery = 'USE %s' % (database)
                 cursor.execute(databasequery)
                 cursor.execute(insertquery)
@@ -205,13 +200,11 @@ def listDatabaseView(request):
                 cursor.close()
                 conn.commit()
                 conn.close()
-                print('--------------ok')
 
             # inserting data according to postgres
             elif request.session['database_type'] == 'postgres':
                 insertquery = "INSERT INTO %s %s VALUES %s;" % (
                     posttable, header, data)
-                print(insertquery)
                 cursor.execute(insertquery)
                 select_query = 'select * from %s' % (posttable)
                 cursor.execute(select_query)
@@ -221,6 +214,6 @@ def listDatabaseView(request):
                 conn.close()
         except Exception as ex:
             print(ex)
-            return render(request, 'selectdatabase.html', {'databases': request.session['user'+'database'], 'error': 'Error! could not enter data into database\n please match columns and datatype with table'})
+            return render(request, 'selectdatabase.html', {'databases': request.session['userdatabase'], 'error': 'Error! could not enter data into database\n please match columns and datatype with table'})
 
         return HttpResponse('data added'+'\n'+str(alldata)+"""<a href='/listdatabase/'>Add Another Data</a>""")
