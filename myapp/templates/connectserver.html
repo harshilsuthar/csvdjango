@@ -3,7 +3,7 @@
 <form method='POST'>
     {% csrf_token %}
     <center>
-        <table class='table card' style="width:min-content; margin-top: 2%;">
+        <table class='table card' style="width:max-content; margin-top: 2%;">
             <tr>
                 <td>{{form.database_type.label}}</td>
                 <td>{{form.database_type}}</td>
@@ -25,13 +25,16 @@
                 <td>{{form.port}}</td>
             </tr>
             <tr>
-                <td colspan="2"><center><input type="submit" value="Submit" /></center></td>
+                <td colspan="2"><center><input type="submit" value="Submit" class="btn btn-success" /></center></td>
+            </tr>
+            <tr>
+                <td colspan="2">{{error}}</td>
             </tr>
         </table>
     </center>
 
 </form>
-{{error}}
+
 {% endblock body %}
 {% block endscript %}
 <script>

@@ -1,42 +1,176 @@
 {% extends 'base.html' %}
+{% block headscript %}
+<style>
+    input {
+        width: 200px;
+    }
+
+</style>
+
+{% endblock headscript %}
 {% block body %}
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-<select name='database' onchange="selecteddatabase()" id='database' required>
-{% for list in databases %}
-    <option value='{{list}}'>{{ list }}</option>
-{% endfor %}
-</select>
-<div id='tablelist'></div>
-<div id='csvfile'>
-    <label for='name'>Upload File:</label>
-    <input type='file' accept=".csv" name='csvfile'><br>
-    <input type="submit" value='submit'>
+
+<div>
+<table class="table">
+    <tr>
+        <td>
+            <form method="post" enctype="multipart/form-data" id='file-upload-form'>
+                {% csrf_token %}
+                <table class='table card' style="width: max-content;">
+                    <tr>
+                        <td>Select Database</td>
+                        <td><select name='database' onchange="selecteddatabase()" id='database' required>
+                                {% for list in databases %}
+                                <option value='{{list}}'>{{ list }}</option>
+                                {% endfor %}
+                            </select></td>
+                    </tr>
+                    <tr>
+                        <td>Select Table</td>
+                        <td>
+                            <div id='tablelist'></div>
+                        </td>
+                        <td>
+                            <button id='id_getcolumns' class="btn btn-success" type="button" style="width: 100%;">Get
+                                Table Schema</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for='name'>Upload File:</label></td>
+                        <td>
+                            <input type='file' accept=".csv" name='csvfile' id='csvfileinput' required>
+
+                        </td>
+                        <td>
+                            <button id='id_checkcsv' class="btn btn-success" type="button" style="width: 100%;">Check
+                                CSV</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="3">
+                            <center><input type="submit" value="Submit" class="btn btn-success" /></center>
+                        </td>
+                    </tr>
+                    {% if error != none %}
+                    <tr>
+                        <td colspan="2">{{ error }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </form>
+
+        </td>
+        <td>
+            <div id='id_column_table' style="margin-top: 2%;"></div>
+        </td>
+    </tr>
+</table>
 </div>
-</form>
-{{ error }}
+
+<div hidden='true' id='id_error_div'>
+    <center><h3 class="alert alert-danger">Data Mismatched to Columns Or Column Properties</h3></center>
+    <table class="table" id='error_table'>
+    </table>
+</div>
+    
+            
+
+
 {% endblock body %}
 
 {% block endscript%}
+<!-- setting database list and table list -->
 <script>
-    loadtables = (list) =>{
-        console.log(list);
-        var url = '/createmodel/?name='+list
+    // setting database list and table list
+    loadtables = (list) => {
+        var url = '/createmodel/?name=' + list
         $.ajax({
-            url:url,
-            success: function(data){
+            url: url,
+            success: function (data) {
                 $('#tablelist').html(data)
+                // get table column list after table list updated
+                // $('#id_getcolumns').click()
             }
         })
     }
-    $(document).ready(function(){
+    $(document).ready(function () {
         $('#database').change()
     })
-    selecteddatabase =()=>{
+    selecteddatabase = () => {
         var database = $('#database').val()
         loadtables(database)
     }
-  
+</script>
+
+<!-- setting column list -->
+<script>
+    // setting colunm list
+    $('#id_getcolumns').click(function () {
+        url = '/showtablecolumns/'
+        $.ajax({
+            url: url,
+            data: {
+                tablename: $('#id_table').val(),
+                database: $('#database').val()
+            },
+            success: function (data) {
+                $('#id_column_table').html(data)
+            }
+        })
+    })
+</script>
+
+<!-- getting form data on check csv button and checking for any error in the csv  -->
+<script>
+    // getting form data on check csv button and checking for any error in the csv
+    $('#id_checkcsv').click(function(){
+         // getting form data
+         var data = new FormData($('#file-upload-form').get(0));
+        console.log(data);
+        // resetting error table data to blank
+        $('#id_error_div').prop('hidden',true);
+        $('#error_table').html('<tr><th>Row</th><th>Error Data</th></tr>')
+
+        $.ajax({
+            data: data,
+            type: $('#file-upload-form').attr('method'),
+            url: '/csvcheck/',
+            cache: true,
+            processData: false,
+            contentType: false,
+            success: function (data) {
+                console.log(data)
+
+
+                // send alert if file not found or broken
+                if (data['error_rows'] === 'File Not Found!!') {
+                    alert(data['error_rows'])
+                }
+
+
+                // if no error occurs send success message
+                else if (data['error_rows'] == '') {
+                    $('#id_error_div').prop('hidden',false);
+                    $('#id_error_div').html(
+                            '<center><h3><div class="alert alert-success"><strong>Success!</strong> Data Can Be Added Into Thes Database</div></h3></center>'
+                        )
+                }
+
+                // if error occurs send data in form of table to error_table tag.
+                else {
+                    for (let row of data['error_rows']) {
+                        console.log(row)
+                        $('#id_error_div').prop('hidden',false);
+                        
+                        $('#error_table').append(
+                            '<tr><td>' + row[0] + '</td><td>' + row[1] + '</td></tr>'
+                        );
+                    }
+                }
+            }
+        });
+        return false;
+    })
 </script>
 
 {% endblock endscript%}

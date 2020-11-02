@@ -1,0 +1,17 @@
+<center><h4>Table Schema Details</h4></center>
+<table class="table card" style="width: max-content;">
+    <tr>
+        <th>Field</th>
+        <th>Type</th>
+        
+    </tr>
+
+    {% for row in columns %}
+    <tr>
+        <td>{{row.0}}</td>
+        <td>{{row.1}}</td>
+    </tr>
+    
+    {% endfor %}
+</table>
+
