@@ -75,9 +75,6 @@ TEMPLATES = [
 #     'default': {
 #         'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
 #         'LOCATION': '127.0.0.1:11211',
-#         'OPTIONS': {
-#             'server_max_value_length': 1024 * 1024 * 2,
-#         }
 #     }
 # }
 
@@ -147,8 +144,10 @@ STATICFILES_DIRS = (
 )
 
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = 'media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+
+
 
 LOGIN_URL = '/login/'
 LOGOUT_URL = '/logout/'
@@ -159,3 +158,5 @@ LOGOUT_URL = '/logout/'
 # SECURE_HSTS_SECONDS = False
 # SECURE_HSTS_PRELOAD = False
 # SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+
+
