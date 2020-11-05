@@ -6,10 +6,12 @@ import os
 import pandas
 import psycopg2
 import psycopg2.pool
-from threading import Thread
 import threading
 import time
 import csv
+import queue
+import inspect
+import ctypes
 
 from django.shortcuts import HttpResponse, redirect, render, reverse
 from django.views import generic
@@ -29,25 +31,50 @@ mysql_pool = ''
 postgres_pool = ''
 
 thread_list = []
-c = ''
+que = queue.Queue()
 
 
-class ThreadWithReturnValue(Thread):
-    def __init__(self, group=None, target=None, name=None,
-                 args=(), kwargs={}, Verbose=None):
-        Thread.__init__(self, group, target, name, args, kwargs, daemon=False)
-        self._return = None
+def _async_raise(tid, exctype):
+    """raises the exception, performs cleanup if needed"""
+    if not inspect.isclass(exctype):
+        raise TypeError("Only types can be raised (not instances)")
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        tid, ctypes.py_object(exctype))
+    if res == 0:
+        raise ValueError("invalid thread id")
+    elif res != 1:
+        # """if it returns a number greater than one, you're in trouble,
+        # and you should call it again with exc=NULL to revert the effect"""
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, 0)
+        raise SystemError("PyThreadState_SetAsyncExc failed")
 
-    def run(self):
-        if self._target is not None:
-            self._return = self._target(*self._args,
-                                        **self._kwargs)
 
-    def join(self, *args):
-        Thread.join(self, *args)
-        return self._return
+class Thread(threading.Thread):
+    def _get_my_tid(self):
+        """determines this (self's) thread id"""
+        if not self.is_alive():
+            raise threading.ThreadError("the thread is not active")
 
-    
+        # do we have it cached?
+        if hasattr(self, "_thread_id"):
+            return self._thread_id
+
+        # no, look for it in the _active dict
+        for tid, tobj in threading._active.items():
+            if tobj is self:
+                self._thread_id = tid
+                return tid
+
+        raise AssertionError("could not determine the thread's id")
+
+    def raise_exc(self, exctype):
+        """raises the given exception type in the context of this thread"""
+        _async_raise(self._get_my_tid(), exctype)
+
+    def terminate(self):
+        """raises SystemExit in the context of the given thread, which should 
+        cause the thread to exit silently (unless caught)"""
+        self.raise_exc(SystemExit)
 
 
 # making connection pool to database
@@ -159,13 +186,18 @@ def listDatabaseView(request):
         global thread_list
         global c
         try:
-            if len(thread_list) != 0 and c!='':
+            if len(thread_list) != 0:
                 start_time = time.time()
-                
-                c.terminate()
+                for thread_value in thread_list:
+                    thread_value.terminate()
+                    thread_value.join()
+
+                while not que.empty():
+                    que.get()
+                    q.task_done()
+
                 thread_list = []
-                print('restart view joins thread')
-                print('restart thread------------',time.time()-start_time)
+                print('restart thread------------', time.time()-start_time)
         except Exception as ex:
             print(ex)
 
@@ -299,7 +331,6 @@ def listDatabaseView(request):
 
             return HttpResponse('data added'+'\n'+str(alldata)+"""<a href='/listdatabase/'>Add Another Data</a>""")
     except Exception as ex:
-        print('-----------------exception occur')
         print(ex)
         return render(request, 'selectdatabase.html', {'databases': request.session['userdatabase'], 'error': 'Error! could not enter data into database\n please match columns and datatype with table'})
 # getting form using ajax try to put data inside database but not commiting.
@@ -309,17 +340,6 @@ def csvCheck(request):
     if request.method == 'POST':
         try:
             global thread_list
-            global c
-            try:
-                if len(thread_list) != 0 and c!='':
-                    start_time = time.time()
-                    c.terminate()
-                    thread_list = []
-                    print('restart view joins thread')
-                    print('restart thread------------',time.time()-start_time)
-            except Exception as ex:
-                print(ex)
-            # getting data from selectdatabase.html using ajax
             csvfile = request.FILES.get('csvfile')
             table = request.POST.get('table')
             database = request.POST.get('database')
@@ -360,6 +380,7 @@ def csvCheck(request):
             global forloop_counter
             forloop_counter = 0
             total_counter = len(data1)
+            print('totalcounter---------', total_counter)
 
             #starting thread for csv checking
 
@@ -368,16 +389,19 @@ def csvCheck(request):
             start_time = time.time()
 
             thread_list = []
-            c = Callme()
             for ct in range(thread_count):
-                stop_threads = False
-                thread_value = ThreadWithReturnValue(target=c.checkCsvSubProcess, args=(
-                    request, database, data1[ct::thread_count], table, header, ct, thread_count, lambda: stop_threads))
+                # thread_value = ThreadWithReturnValue(target=c.checkCsvSubProcess, args=(
+                #     request, database, data1[ct::thread_count], table, header, ct, thread_count, lambda: stop_threads))
+                thread_value = Thread(target=lambda q, args1: q.put(checkCsvSubProcess(*args1)), args=(
+                    que, [request, database, data1[ct::thread_count], table, header, ct, thread_count]))
                 thread_list.append(thread_value)
             for thread_value in thread_list:
                 thread_value.start()
             for thread_value in thread_list:
-                error_row_chunk, error_row_index_chunk = thread_value.join()
+                thread_value.join()
+
+            while not que.empty():
+                error_row_chunk, error_row_index_chunk = que.get()
                 error_rows_index.extend(error_row_index_chunk)
                 error_rows.extend(error_row_chunk)
             #thread management ends
@@ -397,24 +421,24 @@ def csvCheck(request):
                 print('collecting error line')
                 # getting index from error_row list and fetching same record from user uploaded file and creating new file with fetched record
                 user_list = user.values.tolist()
-                print(len(user_list), '------------------------user list')
-                print(len(error_rows_index), '=========== error list indexes')
 
-                error_files = list(map(user_list.__getitem__, error_rows_index))
+                error_files = list(
+                    map(user_list.__getitem__, error_rows_index))
                 df = pandas.DataFrame(error_files, columns=raw_header)
-               
+
                 df.to_csv(file)
                 print('error file written!!!!!!!!')
                 csvfile.close()
                 file_bool = True
-                print('create file time -----------------', time.time()-start_time)
+                print('create file time -----------------',
+                      time.time()-start_time)
 
                 try:
                     j_response = JsonResponse(
                         {'error_rows': error_rows, 'file_url': file, 'file_bool': file_bool})
                     return j_response
                 except Exception as ex:
-                    print('------------ok----------------')
+                    print(ex)
 
             elif len(error_rows) != 0:
                 j_response = JsonResponse(
@@ -424,57 +448,48 @@ def csvCheck(request):
                 return JsonResponse({'error_rows': ''})
 
         except Exception as ex:
-            print('thread close error')
-            print(ex)
             return JsonResponse({'error_rows': 'File Not Found!!'})
 
 # thread view for csvcheck
 
-class Callme:
-    def __init__(self): 
-        self._running = True
-    def checkCsvSubProcess(self,request, database, data1, table, header, startvalue, jumpvalue, stop_threads):
-        try:
-            # creating connection to database
-            conn = makeconnection(request)
-            cursor = conn.cursor()
-            database_type = request.session['database_type']
-            if database_type == 'mysql':
-                databasequery = 'USE %s' % (database)
-                cursor.execute(databasequery)
 
-            global forloop_counter
+def checkCsvSubProcess(request, database, data1, table, header, startvalue, jumpvalue):
+    error_rows = []
+    error_row_index = []
+    try:
+        # creating connection to database
+        conn = makeconnection(request)
+        cursor = conn.cursor()
+        database_type = request.session['database_type']
+        if database_type == 'mysql':
+            databasequery = 'USE %s' % (database)
+            cursor.execute(databasequery)
+        global forloop_counter
 
-            # checking if error occur while try to adding data into table, if error occured add into list
-            error_rows = []
-            error_row_index = []
-            for row_count, row in enumerate(data1):
-                try:
-                    insertquery = "INSERT INTO %s %s VALUES %s;" % (
-                        table, header, row)
-                    cursor.execute(insertquery)
-                    if self._running  == False:
-                        print('-----breaking--------')
-                        break
-                except Exception as ex:
-                    forloop_counter += 1
-                    error_rows.append([startvalue+row_count*jumpvalue, row])
-                    error_row_index.append(startvalue+row_count*jumpvalue)
+        # checking if error occur while try to adding data into table, if error occured add into list
+        for row_count, row in enumerate(data1):
+            try:
+                insertquery = "INSERT INTO %s %s VALUES %s;" % (
+                    table, header, row)
+                cursor.execute(insertquery)
+            except Exception as ex:
+                forloop_counter += 1
+                error_rows.append([startvalue+row_count*jumpvalue, row])
+                error_row_index.append(startvalue+row_count*jumpvalue)
+    except Exception as ex:
+        print(ex)
 
+    finally:
+        cursor.close()
+        conn.close()
+        print(len(error_rows), len(error_row_index), '-------finally')
+        return error_rows, error_row_index
 
-            cursor.close()
-            conn.close()
-            return error_rows, error_row_index
-        except Exception as ex:
-            print('thread close error')
-            cursor.close()
-            conn.close()
-    
-    def terminate(self): 
-        self._running = False
 
 # table schema view
 
+def canclecsvcheck(request):
+    pass
 
 def showTableColumns(request):
 

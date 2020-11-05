@@ -146,8 +146,8 @@
         // creating updating progressbar every second
         $('#id_progress_parent').prop('hidden', false)
         var timer = setInterval(setprogress, 1000)
-
-        $.ajax({
+        // ajaxcall.abort(function(){clearInterval(timer)})
+        var ajaxcall = $.ajax({
             data: data,
             type: $('#file-upload-form').attr('method'),
             url: '/csvcheck/',
@@ -162,6 +162,10 @@
 
                 // send alert if file not found or broken
                 if (data['error_rows'] === 'File Not Found!!') {
+                    alert(data['error_rows'])
+                    
+                }
+                if (data['error_rows'] === 'last file aborted') {
                     alert(data['error_rows'])
                     
                 }
