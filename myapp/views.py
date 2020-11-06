@@ -29,8 +29,13 @@ total_counter = 0
 
 mysql_pool = ''
 postgres_pool = ''
+data_check_time = 0
+data_check_count = 0
 
-thread_list = []
+
+subprocess_thread_list = []
+master_thread_list = []
+is_thread_manager_running = False
 que = queue.Queue()
 
 
@@ -119,14 +124,14 @@ class DatabaseConfigView(generic.FormView):
             self.request.session['host'] = host
             self.request.session['port'] = port
             if database_type == 'postgres':
-                postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 10, user=username,
+                postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=username,
                                                                      password=password,
                                                                      host=host,
                                                                      port=port,
                                                                      database="postgres")
             elif database_type == 'mysql':
                 mysql_pool = mysql.connector.pooling.MySQLConnectionPool(
-                    pool_name="mypool", pool_size=10, user=username, passwd=password, host=host, port=port)
+                    pool_name="mypool", pool_size=32, user=username, passwd=password, host=host, port=port)
 
         except Exception as ex:
             print(ex)
@@ -183,12 +188,12 @@ def listDatabaseView(request):
         password = request.session['password']
         host = request.session['host']
         port = request.session['port']
-        global thread_list
+        global subprocess_thread_list
         global c
         try:
-            if len(thread_list) != 0:
+            if len(subprocess_thread_list) != 0:
                 start_time = time.time()
-                for thread_value in thread_list:
+                for thread_value in subprocess_thread_list:
                     thread_value.terminate()
                     thread_value.join()
 
@@ -196,7 +201,7 @@ def listDatabaseView(request):
                     que.get()
                     q.task_done()
 
-                thread_list = []
+                subprocess_thread_list = []
                 print('restart thread------------', time.time()-start_time)
         except Exception as ex:
             print(ex)
@@ -339,7 +344,7 @@ def listDatabaseView(request):
 def csvCheck(request):
     if request.method == 'POST':
         try:
-            global thread_list
+            global subprocess_thread_list
             csvfile = request.FILES.get('csvfile')
             table = request.POST.get('table')
             database = request.POST.get('database')
@@ -370,92 +375,117 @@ def csvCheck(request):
                 else:
                     row = str(tuple(row))
                     data.append(row)
-
             data1 = data
             error_rows = []
             error_rows_index = []
 
             # setting global counter for thread
             global total_counter
-            global forloop_counter
-            forloop_counter = 0
+            global master_thread_list
+            global is_thread_manager_running
             total_counter = len(data1)
             print('totalcounter---------', total_counter)
-
-            #starting thread for csv checking
-
-            # thread management
-            thread_count = 3
             start_time = time.time()
 
-            thread_list = []
-            for ct in range(thread_count):
-                # thread_value = ThreadWithReturnValue(target=c.checkCsvSubProcess, args=(
-                #     request, database, data1[ct::thread_count], table, header, ct, thread_count, lambda: stop_threads))
-                thread_value = Thread(target=lambda q, args1: q.put(checkCsvSubProcess(*args1)), args=(
-                    que, [request, database, data1[ct::thread_count], table, header, ct, thread_count]))
-                thread_list.append(thread_value)
-            for thread_value in thread_list:
-                thread_value.start()
-            for thread_value in thread_list:
-                thread_value.join()
+            # creating csvchecksubprocess thread and append in master thread list
+            commit = False
+            t1 = threading.Thread(target=csvThreadCreator, args=(
+                request, database, data1, table, header, raw_header, user, commit))
+            master_thread_list.append(t1)
+            print(len(master_thread_list), 'thread added in master_thread_list by csvcheck')
+            
+            if is_thread_manager_running == False:
+                is_thread_manager_running = True
+                print('calling thread manager from csvcheck')
+                # master thread creator for thread manager which maintains queue.
+                t2 = threading.Thread(target=threadManager)
+                t2.start()
+            print('csv check thread creation and handle time for starting background processing:', time.time()-start_time)
 
-            while not que.empty():
-                error_row_chunk, error_row_index_chunk = que.get()
-                error_rows_index.extend(error_row_index_chunk)
-                error_rows.extend(error_row_chunk)
-            #thread management ends
-
-            print('data checking time -----------------', time.time()-start_time)
-            error_rows.sort()
-            error_rows_index.sort()
-
-            # creating file if error list is greater than 20.
-            file_bool = False
-            if len(error_rows) > 20:
-                start_time = time.time()
-                file = 'media/csvfiles/error_file_static.csv'
-                csvfile = open(file, 'w')
-                # csvwriter = csv.writer(csvfile)
-                # csvwriter.writerow(raw_header)
-                print('collecting error line')
-                # getting index from error_row list and fetching same record from user uploaded file and creating new file with fetched record
-                user_list = user.values.tolist()
-
-                error_files = list(
-                    map(user_list.__getitem__, error_rows_index))
-                df = pandas.DataFrame(error_files, columns=raw_header)
-
-                df.to_csv(file)
-                print('error file written!!!!!!!!')
-                csvfile.close()
-                file_bool = True
-                print('create file time -----------------',
-                      time.time()-start_time)
-
-                try:
-                    j_response = JsonResponse(
-                        {'error_rows': error_rows, 'file_url': file, 'file_bool': file_bool})
-                    return j_response
-                except Exception as ex:
-                    print(ex)
-
-            elif len(error_rows) != 0:
-                j_response = JsonResponse(
-                    {'error_rows': error_rows, 'file_bool': file_bool})
-                return j_response
-            else:
-                return JsonResponse({'error_rows': ''})
+            return JsonResponse({'error_rows': 'File Checking Under Process!!'})
 
         except Exception as ex:
-            return JsonResponse({'error_rows': 'File Not Found!!'})
+            print(ex)
+            return JsonResponse({'error_rows': 'Could Not Process The Request!!'})
 
-# thread view for csvcheck
+
+# thread management classes for csvcheck
+# make a csvThreadCreator thread and wait untill it completes, called by csvCheck
+# this function act as queue.
+def threadManager():
+    global master_thread_list
+    global is_thread_manager_running
+    print('thread manager is running')
+    print(len(master_thread_list), 'master thread list len')
+    start_time = time.time()
+    while True:
+        for thread in master_thread_list:
+            # get thread from the list and start and wait for its execution
+            thread.start()
+            thread.join()
+            master_thread_list.remove(thread)
+        if len(master_thread_list) == 0:
+            is_thread_manager_running = False
+            print('stopping master thread manager')
+            print('total master thread wakeup time is:',time.time()-start_time)
+            print(data_check_time/data_check_count)
+            break
 
 
-def checkCsvSubProcess(request, database, data1, table, header, startvalue, jumpvalue):
+# create multitheaded check csv subprocess, called by threadManager, aslo create error file
+def csvThreadCreator(request, database, data1, table, header, raw_header, user, commit):
+    error_rows_index = []
     error_rows = []
-    error_row_index = []
+    thread_count = 3
+    start_time = time.time()
+
+    subprocess_thread_list = []
+    # creating multiple threads for checking csv
+    for ct in range(thread_count):
+        thread_value = Thread(target=lambda q, args1: q.put(csvThread(*args1)), args=(
+            que, [request, database, data1[ct::thread_count], table, header, ct, thread_count, commit]))
+        subprocess_thread_list.append(thread_value)
+
+    # starting all threads at a time
+    for thread_value in subprocess_thread_list:
+        thread_value.start()
+
+    # joins threads one by one.
+    for thread_value in subprocess_thread_list:
+        thread_value.join()
+
+    # getting sub thread return value from queue.Queue
+    while not que.empty():
+        error_row_chunk = que.get()
+        error_rows.extend(error_row_chunk)
+    
+    # sorting error_rows and data
+    print('data checking time -----------------', time.time()-start_time)
+    global data_check_time
+    global data_check_count 
+    data_check_count +=1
+    data_check_time += time.time()-start_time
+    error_rows.sort()
+
+
+    # creating file if error list is greater than 20.
+    if len(error_rows) > 2:
+        start_time = time.time()
+        file = 'media/csvfiles/error_file_static.csv'
+        csvfile = open(file, 'w')
+        print('collecting error line')
+        res_list = map(user.values.__getitem__, error_rows) 
+        csvfile.write(pandas.DataFrame(res_list, columns=raw_header).to_csv(index=False))
+        print('file written!!!!!!!!')
+        csvfile.close()
+        print('create file time -----------------',
+              time.time()-start_time)
+    pass
+
+
+# its a thread process of csvthread, called by csvThreadCreator
+def csvThread(request, database, data1, table, header, startvalue, jumpvalue, commit):
+    error_rows = []
     try:
         # creating connection to database
         conn = makeconnection(request)
@@ -469,28 +499,26 @@ def checkCsvSubProcess(request, database, data1, table, header, startvalue, jump
         # checking if error occur while try to adding data into table, if error occured add into list
         for row_count, row in enumerate(data1):
             try:
+                forloop_counter += 1
                 insertquery = "INSERT INTO %s %s VALUES %s;" % (
                     table, header, row)
                 cursor.execute(insertquery)
             except Exception as ex:
-                forloop_counter += 1
-                error_rows.append([startvalue+row_count*jumpvalue, row])
-                error_row_index.append(startvalue+row_count*jumpvalue)
+                error_rows.extend([startvalue+row_count*jumpvalue])
     except Exception as ex:
         print(ex)
 
     finally:
+        if commit == True:
+            cursor.commit()
         cursor.close()
         conn.close()
-        print(len(error_rows), len(error_row_index), '-------finally')
-        return error_rows, error_row_index
+        print(len(error_rows), '-------finally')
+        return error_rows
+# thread management ends here
 
 
 # table schema view
-
-def canclecsvcheck(request):
-    pass
-
 def showTableColumns(request):
 
     if request.method == 'GET':
@@ -523,9 +551,8 @@ def showTableColumns(request):
             elif database_type == 'postgres':
                 return render(request, 'tablecolumnpostgres.html', {'columns': ''})
 
+
 #increase progressbar view
-
-
 def getCurrentProcessCount(request):
     if request.method == 'GET':
         return JsonResponse({'current_counter': forloop_counter, 'total_counter': total_counter})
