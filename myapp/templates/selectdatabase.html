@@ -50,16 +50,19 @@
                         </tr>
                         <tr>
                             <td colspan="3">
-                                <center><input type="submit" value="Commit Data" class="btn btn-success" /></center>
+                                <center><input type="submit" value="Force Commit" class="btn btn-success" /></center>
                             </td>
                         </tr>
-                        {% if error != none %}
-                        <tr>
-                            <td colspan="2">{{ error }}</td>
-                        </tr>
-                        {% endif %}
+                        
                     </table>
                 </form>
+                <div hidden='true' id='id_error_div' style="margin-top: 2%;">
+                    <center>
+                        <h3 class="alert alert-warning"  id='id_error_row'></h3>
+                    </center>
+                    <table class="table" id='error_table'>
+                    </table>
+                </div>
 
             </td>
             <td>
@@ -77,13 +80,8 @@
     </div>
 </div>
 
-<div hidden='true' id='id_error_div' style="margin-top: 2%;">
-    <center>
-        <h3 class="alert alert-danger">Data Mismatched to Columns Or Column Properties</h3>
-    </center>
-    <table class="table" id='error_table'>
-    </table>
-</div>
+
+
 
 
 
@@ -102,7 +100,7 @@
             success: function (data) {
                 $('#tablelist').html(data)
                 // get table column list after table list updated
-                // $('#id_getcolumns').click()
+                $('#id_getcolumns').click()
             }
         })
     }
@@ -112,6 +110,7 @@
     selecteddatabase = () => {
         var database = $('#database').val()
         loadtables(database)
+        
     }
 </script>
 
@@ -182,8 +181,8 @@
                 if (data['error_rows'] != '') {
                     $('#id_progress_parent').prop('hidden', true)
                     console.log($('#id_progress_parent').prop('hidden'))
-                    // alert(data['error_rows'])
-
+                    $('#id_error_div').prop('hidden',false)
+                    $('#id_error_row').html(data['error_rows'])
                 }
 
 
@@ -242,5 +241,11 @@
     }
 </script> -->
 
-
+<script>
+    if('{{error}}'!='None'){
+        console.log('{{error}}')
+        $('#id_error_div').prop('hidden',false)
+        $('#id_error_row').html('{{error}}')
+    }
+</script>
 {% endblock endscript%}

@@ -1,0 +1,5 @@
+{% for data in history_data %}
+<a href="/media/{{data.uploaded_file}}">Upload file</a><br>
+<a href="/media/{{data.error_file}}">Error File</a><br>
+<br>
+{% endfor %}
