@@ -2,42 +2,43 @@
 <!DOCTYPE html>
 <html lang="en">
 
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Document</title>
-        <link rel="shortcut icon" href="" type="image/x-icon">
-        <link rel="stylesheet" href="{% static 'css/bootstrap.min.css'%}">
-        <script src="{% static 'js/jquery-3.4.1.min.js'%}"></script>
-        <script src="{% static 'js/bootstrap.min.js'%}"></script>
-        <script src="{% static 'js/popper.min.js'%}"></script>
-        <style>
-            .navbar .navbar-collapse .navbar-nav .active{
-                color:red;
-                font-weight: 600;
-            }
-        </style>
-        {% block headscript %}
-        {% endblock headscript %}
-    </head>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="shortcut icon" href="" type="image/x-icon">
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css'%}">
+    <script src="{% static 'js/jquery-3.4.1.min.js'%}"></script>
+    <script src="{% static 'js/bootstrap.min.js'%}"></script>
+    <script src="{% static 'js/popper.min.js'%}"></script>
+    <style>
+      .navbar .navbar-collapse .navbar-nav .active {
+        color: red;
+        font-weight: 600;
+      }
 
-    <body>
-        {% include 'navbar.html' %}
-        <div class='container' id='id_body'>
-        {% block body %}
-        {% endblock body %}
+    </style>
+    {% block headscript %}
+    {% endblock headscript %}
+  </head>
+
+  <body>
+      {% include 'navbar.html' %}
+      <div class="container">
+    {% block body %}
+    {% endblock body %}
     </div>
-    </body>
-    <script>
-        var path = window.location.pathname;
-        if (path=='/connectserver'){
-          $('#selectserver').addClass('active');
-        }
-        else if(path=='/connectserver/<error>'){
-          $('#selectserver').addClass('active');
-        }
-      </script>
-    {%block endscript %}
-    {% endblock endscript %}
+  </body>
+  <script>
+    var path = window.location.pathname;
+    if (path == '/connectserver') {
+      $('#selectserver').addClass('active');
+    }
+    else if (path == '/connectserver/<error>') {
+      $('#selectserver').addClass('active');
+    }
+  </script>
+  {%block endscript %}
+  {% endblock endscript %}
 
 </html>

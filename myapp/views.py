@@ -1,31 +1,27 @@
-import dependency_injector
-import mysql
-
-import mysql.connector.pooling
+import csv
+import ctypes
+import hashlib
+import inspect
 import os
+import queue
+import threading
+import time
+
+import mysql
+import mysql.connector.pooling
 import pandas
 import psycopg2
 import psycopg2.pool
-import threading
-import time
-import csv
-import queue
-import inspect
-import ctypes
-import hashlib
-
+from django.contrib.auth.models import User
+from django.core.cache import cache
+from django.core.files import File
+from django.http import JsonResponse
 from django.shortcuts import HttpResponse, redirect, render, reverse
 from django.views import generic
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from django.core.cache import cache
-from django.contrib.auth.models import User
-from django.core.files import File
-from multiprocessing import Process
 
 from . import models
 from .forms import ConnectServerForm
-
 
 # forloop_counter = 0
 # total_counter = 0
@@ -123,6 +119,9 @@ class DatabaseConfigView(generic.FormView):
             port = form.cleaned_data['port']
             print(port, '=====port')
             self.request.session['database_type'] = database_type
+            self.request.session['username'] = username
+            self.request.session['port'] = port
+            self.request.session['host'] = host
             if database_type == 'postgres':
                 postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=username,
                                                                      password=password,
