@@ -9,8 +9,10 @@
   </button>
   <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
     <div class="navbar-nav ml-auto">
-      <a class="nav-item nav-link active" href="/" id='selectserver'>Select Server</a>
-      <a class="nav-item nav-link active" href="/manage" id='selectserver'>History</a>
+      <a class="nav-item nav-link" href="{% url 'myapp:ConnectServerRedirect' %}" id='selectserver'>Select Server</a>
+      <a class="nav-item nav-link" href="{% url 'myapp:ListDatabaseView'%}" id='id_upload_csv'>Upload CSV</a>
+      <a class="nav-item nav-link" href="{% url 'upload_manage:History' %}" id='id_history'>History</a>
+      <a class="nav-item nav-link" href="{% url 'nevigate:Logout'%}" id='selectserver'>Logout</a>
     </div>
   </div>
 </nav>
