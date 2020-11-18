@@ -134,23 +134,23 @@ class DatabaseConfigView(generic.FormView):
         except psycopg2.Error as ex:
             # print(ex)
             try:
-                return redirect('ConnectServer', error=ex)
+                return redirect('myapp:ConnectServer', error=ex)
             except Exception:
-                return redirect('ConnectServer', error='Unknown Error')
+                return redirect('myapp:ConnectServer', error='Unknown Error')
         except mysql.connector.errors.Error as ex:
             # print(ex)
             try:
-                return redirect('ConnectServer', error=ex)
+                return redirect('myapp:ConnectServer', error=ex)
             except Exception:
-                return redirect('ConnectServer', error='Unknown Error')
+                return redirect('myapp:ConnectServer', error='Unknown Error')
         except Exception as ex:
             # print(ex)
             print('final exception')
             try:
-                return redirect('ConnectServer', error=ex)
+                return redirect('myapp:ConnectServer', error=ex)
             except Exception:
-                return redirect('ConnectServer', error='Unknown Error')
-        return redirect(reverse('ListDatabaseView'))
+                return redirect('myapp:ConnectServer', error='Unknown Error')
+        return redirect(reverse('myapp:ListDatabaseView'))
 
 
 # rendering table list into selectdatabase.html from selecttable.html
@@ -201,13 +201,13 @@ def listDatabaseView(request):
 
             except psycopg2.Error as ex:
                 print(ex)
-                return redirect('ConnectServer', error=ex)
+                return redirect('myapp:ConnectServer', error=ex)
             except mysql.connector.errors.Error as ex:
                 print(ex)
-                return redirect('ConnectServer', error=ex)
+                return redirect('myapp:ConnectServer', error=ex)
             except Exception as ex:
                 print(ex)
-                return redirect('ConnectServer', error=ex)
+                return redirect('myapp:ConnectServer', error=ex)
 
             # executing show database query according to server
             if request.session['database_type'] == 'postgres':
@@ -221,14 +221,14 @@ def listDatabaseView(request):
             cursor.close()
             conn.close()
             # rendering database list
-            error=None
+            error = None
             try:
                 error = request.session['ListDatabaseViewError']
                 del request.session['ListDatabaseViewError']
             except Exception as ex:
                 print(ex)
             finally:
-                return render(request, 'selectdatabase.html', {'databases': databases, 'error':error})
+                return render(request, 'selectdatabase.html', {'databases': databases, 'error': error})
 
         if request.method == 'POST':
             try:
@@ -247,25 +247,24 @@ def listDatabaseView(request):
                 md5_hash = hashlib.md5()
                 md5_hash.update(csvfile.read())
                 digest = md5_hash.hexdigest()
-                error_model = models.CsvErrorFile.objects.filter(user=User.objects.get(id=1), server_name=database_type, 
-                                                                 server_username=username,server_port=port, server_host=host, 
-                                                                 server_database=database, server_table=table, uploaded_file_hash=digest, 
+                error_model = models.CsvErrorFile.objects.filter(user=User.objects.get(id=1), server_name=database_type,
+                                                                 server_username=username, server_port=port, server_host=host,
+                                                                 server_database=database, server_table=table, uploaded_file_hash=digest,
                                                                  commited=True)
                 if len(error_model) != 0:
                     request.session['ListDatabaseViewError'] = 'request is already fulfiled, check history for error data in csvfile'
-                    return redirect('ListDatabaseView')
+                    return redirect('myapp:ListDatabaseView')
                 else:
-                    error_model = models.CsvErrorFile(user=User.objects.get(id=1), server_name=database_type, server_username=username, 
-                                                      server_port=port, server_host=host,server_database=database, server_table=table, 
-                                                      uploaded_file=csvfile, process_state='processing', 
+                    error_model = models.CsvErrorFile(user=User.objects.get(id=1), server_name=database_type, server_username=username,
+                                                      server_port=port, server_host=host, server_database=database, server_table=table,
+                                                      uploaded_file=csvfile, process_state='processing',
                                                       uploaded_file_hash=digest, commited=True)
                     error_model.save()
                     model_pk = error_model.pk
-                
 
                 # converting csv data for database entry
                 # seperating header from csv
-                header,raw_header,data = csvSplitter(user)
+                header, raw_header, data = csvSplitter(user)
                 # setting global counter for thread
                 # global total_counter
                 global master_thread_list
@@ -278,10 +277,10 @@ def listDatabaseView(request):
                 commit = True
                 t1 = threading.Thread(target=csvThreadCreator, args=(
                     request, database, data, table, header, raw_header, user, commit, model_pk))
-                master_thread_list.insert(0,t1)
+                master_thread_list.insert(0, t1)
                 print(len(master_thread_list),
                       'thread added in master_thread_list by listDatabaseView for commiting')
-                
+
                 # if thread manager is shutdown then turn it on.
                 if is_thread_manager_running == False:
                     is_thread_manager_running = True
@@ -292,11 +291,11 @@ def listDatabaseView(request):
                 print('csv check thread creation and handle time for starting background processing:',
                       time.time()-start_time)
 
-                return redirect('ListDatabaseView')
+                return redirect('myapp:ListDatabaseView')
 
             except Exception as ex:
                 print(ex)
-                return redirect('ListDatabaseView')
+                return redirect('myapp:ListDatabaseView')
     except Exception as ex:
         print(ex)
 
@@ -323,23 +322,23 @@ def csvCheck(request):
             md5_hash.update(csvfile.read())
             digest = md5_hash.hexdigest()
             error_model = models.CsvErrorFile.objects.filter(user=User.objects.get(
-                                                        id=1), server_name=database_type, server_username=username, 
-                                                        server_port=port, server_host=host, server_database=database, 
-                                                        server_table=table, uploaded_file_hash=digest)
+                id=1), server_name=database_type, server_username=username,
+                server_port=port, server_host=host, server_database=database,
+                server_table=table, uploaded_file_hash=digest)
             if len(error_model) != 0:
                 return JsonResponse({'error_rows': 'request is already fulfilled, check history for error data file'})
             else:
-                error_model = models.CsvErrorFile(user=User.objects.get(id=1), server_name=database_type, 
-                                                        server_username=username, server_port=port,
-                                                        server_host=host, server_database=database, server_table=table, 
-                                                        uploaded_file=csvfile, process_state='processing', 
-                                                        uploaded_file_hash=digest)
+                error_model = models.CsvErrorFile(user=User.objects.get(id=1), server_name=database_type,
+                                                  server_username=username, server_port=port,
+                                                  server_host=host, server_database=database, server_table=table,
+                                                  uploaded_file=csvfile, process_state='processing',
+                                                  uploaded_file_hash=digest)
                 error_model.save()
                 model_pk = error_model.pk
 
             # converting csv data for database entry
             # seperating header from csv
-            header,raw_header,data = csvSplitter(user)
+            header, raw_header, data = csvSplitter(user)
 
             # setting global counter for thread
             # global total_counter
@@ -366,7 +365,6 @@ def csvCheck(request):
             print('csv check thread creation and handle time for starting background processing:',
                   time.time()-start_time)
             return JsonResponse({'error_rows': 'File Checking Under Process!!'})
-            
 
         except Exception as ex:
             try:
@@ -374,11 +372,11 @@ def csvCheck(request):
                 error_model.process_state = 'error'
                 error_model.save()
             except Exception as ex1:
-                print('error while updating model state to error inside csvThreadCreator')
+                print(
+                    'error while updating model state to error inside csvThreadCreator')
                 print(ex1)
             print(ex)
             return JsonResponse({'error_rows': str(ex)})
-            
 
 
 # thread management classes for csvcheck
@@ -401,7 +399,8 @@ def threadManager():
             if len(master_thread_list) == 0:
                 is_thread_manager_running = False
                 print('stopping master thread manager')
-                print('total master thread wakeup time is:', time.time()-start_time)
+                print('total master thread wakeup time is:',
+                      time.time()-start_time)
                 print(data_check_time/data_check_count)
                 break
     except Exception as ex:
@@ -409,6 +408,8 @@ def threadManager():
         print(ex)
 
 # create multitheaded check csv subprocess, called by threadManager, aslo create error file
+
+
 def csvThreadCreator(request, database, data, table, header, raw_header, user, commit, model_pk):
     try:
         error_rows = []
@@ -466,7 +467,7 @@ def csvThreadCreator(request, database, data, table, header, raw_header, user, c
             error_model.process_state = 'completed'
             error_model.save()
         print('create file time -----------------',
-            time.time()-start_time)
+              time.time()-start_time)
     except Exception as ex:
         print('exception in csvThreadCreator, saving "error" in model')
         print(ex)
@@ -541,8 +542,10 @@ def csvSplitter(user):
         else:
             row = str(tuple(row))
             data.append(row)
-    return header,raw_header, data
+    return None, None, None
 # table schema view
+
+
 def showTableColumns(request):
 
     if request.method == 'GET':
