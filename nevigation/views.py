@@ -35,8 +35,6 @@ def registerView(request):
             return redirect('nevigate:Login')
         else:
             return render(request, 'register.html',{'form':form})
-    
-    pass
 
 def logoutView(request):
     try:

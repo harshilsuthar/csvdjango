@@ -46,21 +46,31 @@
 						</span>
 
 						<!-- username div -->
-						<div class="wrap-input100 validate-input">
-							{{ form.username }}
-							<span class="focus-input100" data-placeholder="{{ form.username.label }}"></span>
+						<div class="mt-4">
+							<div class="wrap-input100 mb-1">
+								{{ form.username }}
+								<span class="focus-input100" data-placeholder="{{ form.username.label }}"></span>
+							</div>
+							
+							{% if form.errors.username %}
+							<div class="mt-1 alert alert-danger">{{ form.errors.username }}</div>
+							{% endif %}
 						</div>
-						{{ form.errors.username }}
 
 						<!-- password div -->
-						<div class="wrap-input100 validate-input" data-validate="Enter password">
-							<span class="btn-show-pass">
-								<i class="zmdi zmdi-eye"></i>
-							</span>
-							{{ form.password }}
-							<span class="focus-input100" data-placeholder="Password"></span>
+						<div class="mt-4">
+							<div class="wrap-input100" data-validate="Enter password">
+								<span class="btn-show-pass">
+									<i class="zmdi zmdi-eye"></i>
+								</span>
+								{{ form.password }}
+								<span class="focus-input100" data-placeholder="{{ form.password.label }}"></span>
+							</div>
+							
+							{% if form.errors.password %}
+							<div class="mt-1 alert alert-danger">{{ form.errors.password  }}</div>
+							{% endif %}
 						</div>
-						{{ form.errors.password  }}
 
 						<!-- other errors  -->
 						{% if form.non_field_errors %}
@@ -80,7 +90,7 @@
 						</div>
 
 						<!-- don't have account link -->
-						<div class="text-center p-t-115">
+						<div class="text-center p-t-50">
 							<span class="txt1">
 								Don’t have an account?
 							</span>

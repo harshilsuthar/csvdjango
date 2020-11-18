@@ -90,6 +90,7 @@ def makeconnection(request):
             conn = postgres_pool.getconn()
         return conn
     except Exception as ex:
+        print(ex)
         return None
 
 
@@ -117,7 +118,6 @@ class DatabaseConfigView(generic.FormView):
             password = form.cleaned_data['password']
             host = form.cleaned_data['host']
             port = form.cleaned_data['port']
-            print(port, '=====port')
             self.request.session['database_type'] = database_type
             self.request.session['username'] = username
             self.request.session['port'] = port
@@ -250,7 +250,7 @@ def listDatabaseView(request):
                 error_model = models.CsvErrorFile.objects.filter(user=User.objects.get(id=1), server_name=database_type,
                                                                  server_username=username, server_port=port, server_host=host,
                                                                  server_database=database, server_table=table, uploaded_file_hash=digest,
-                                                                 commited=True)
+                                                                 commited=True).exclude(process_state='error')
                 if len(error_model) != 0:
                     request.session['ListDatabaseViewError'] = 'request is already fulfiled, check history for error data in csvfile'
                     return redirect('myapp:ListDatabaseView')
@@ -324,7 +324,7 @@ def csvCheck(request):
             error_model = models.CsvErrorFile.objects.filter(user=User.objects.get(
                 id=1), server_name=database_type, server_username=username,
                 server_port=port, server_host=host, server_database=database,
-                server_table=table, uploaded_file_hash=digest)
+                server_table=table, uploaded_file_hash=digest, commited=False).exclude(process_state='error')
             if len(error_model) != 0:
                 return JsonResponse({'error_rows': 'request is already fulfilled, check history for error data file'})
             else:
@@ -332,7 +332,7 @@ def csvCheck(request):
                                                   server_username=username, server_port=port,
                                                   server_host=host, server_database=database, server_table=table,
                                                   uploaded_file=csvfile, process_state='processing',
-                                                  uploaded_file_hash=digest)
+                                                  uploaded_file_hash=digest, commited=False)
                 error_model.save()
                 model_pk = error_model.pk
 
@@ -522,27 +522,31 @@ def csvThread(request, database, data, table, header, startvalue, jumpvalue, com
 
 
 def csvSplitter(user):
-    data = []
-    raw_header = tuple(user.head())
-    header = str(raw_header)
-    if len(tuple(user.head())) == 1:
-        headindex = header.rfind(',')
-        header = header[:headindex]+''+header[headindex+1:]
-        header = header.replace("'", "")
-    else:
-        header = header.replace("'", "")
-
-    # seperating values from csv
-    for row in user.values:
-        if len(tuple(row)) == 1:
-            row = str(tuple(row))
-            rowindex = row.rfind(',')
-            row = row[:rowindex]+''+row[rowindex+1:]
-            data.append(row)
+    try:
+        data = []
+        raw_header = tuple(user.head())
+        header = str(raw_header)
+        if len(tuple(user.head())) == 1:
+            headindex = header.rfind(',')
+            header = header[:headindex]+''+header[headindex+1:]
+            header = header.replace("'", "")
         else:
-            row = str(tuple(row))
-            data.append(row)
-    return None, None, None
+            header = header.replace("'", "")
+
+        # seperating values from csv
+        for row in user.values:
+            if len(tuple(row)) == 1:
+                row = str(tuple(row))
+                rowindex = row.rfind(',')
+                row = row[:rowindex]+''+row[rowindex+1:]
+                data.append(row)
+            else:
+                row = str(tuple(row))
+                data.append(row)
+        return  header, raw_header, data
+    except Exception as ex:
+        print(ex)
+        return None, None, None
 # table schema view
 
 
