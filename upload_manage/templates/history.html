@@ -2,62 +2,72 @@
 {% block headscript %}
 <style>
     .my-custom-scrollbar {
-position: relative;
-height: 450px;
-overflow: auto;
-}
-.table-wrapper-scroll-y {
-display: block;
-}
+        position: relative;
+        height: 450px;
+        overflow: auto;
+    }
+
+    .table-wrapper-scroll-y {
+        display: block;
+    }
+
 </style>
-    {% endblock headscript %}
+{% endblock headscript %}
 {% block body %}
 
 {% if history_data %}
 <div class="table-wrapper-scroll-y my-custom-scrollbar">
-    <table class="table mb-0" >
-        <tr>
-            <th>server_name</th>
-            <th>server_username</th>
-            <th>server_port</th>
-            <th>server_host</th>
-            <th>server_database</th>
-            <th>server_table</th>
-            <th>uploaded_file</th>
-            <th>process_state</th>
-            <th>error_file</th>
-            <th>commited</th>
-            <th>upload_time</th>
-            <th>finish_time</th>
-        </tr>
+    <table class="table mb-0" style="width: max-content; height: min-content;">
+        <thead>
+            <tr>
+                <th>server_name</th>
+                <th>server_username</th>
+                <th>server_port</th>
+                <th>server_host</th>
+                <th>server_database</th>
+                <th>server_table</th>
+                <th>uploaded_file</th>
+                <th>process_state</th>
+                <th>error_file</th>
+                <th>commited</th>
+                <th>upload_time</th>
+                <th>finish_time</th>
+            </tr>
+        </thead>
         {% for data in history_data %}
-        <tr>
-            <td>{{data.server_name}}</td>
-            <td>{{data.server_username}}</td>
-            <td>{{ data.server_port}}</td>
-            <td>{{ data.server_host}}</td>
-            <td>{{ data.server_database}}</td>
-            <td>{{ data.server_table}}</td>
-            <td><a href="/media/{{data.uploaded_file}}">{{data.uploaded_file}}</a></td>
-            <td>{{ data.process_state}}</td>
-            {% if data.error_file == '' and data.process_state == 'error'%}
-            <td><h6 style="color: red;">No File Found</h6></td>
-            {% elif data.error_file == '' and data.process_state == 'error'%}
-            <td><h6 style="color: green;">No Error Found</h6></td>
-            {% else %}
-            <td><a href="/media/{{data.error_file}}">{{data.error_file}}</a></td>
-            {% endif %}
-            <td>{{data.commited}}</td>
-            <td>{{ data.upload_time}}</td>
-            <td>{{ data.finish_time}}</td>
-        </tr>
-    {% endfor %}
+        <tbody>
+            <tr>
+                <td>{{data.server_name}}</td>
+                <td>{{data.server_username}}</td>
+                <td>{{ data.server_port}}</td>
+                <td>{{ data.server_host}}</td>
+                <td>{{ data.server_database}}</td>
+                <td>{{ data.server_table}}</td>
+                <td><a href="/media/{{data.uploaded_file}}">{{data.uploaded_file}}</a></td>
+                <td>{{ data.process_state}}</td>
+                {% if data.error_file == '' and data.process_state == 'error'%}
+                <td>
+                    <h6 style="color: red;">No File Found</h6>
+                </td>
+                {% elif data.error_file == '' and data.process_state == 'error'%}
+                <td>
+                    <h6 style="color: green;">No Error Found</h6>
+                </td>
+                {% else %}
+                <td><a href="/media/{{data.error_file}}">{{data.error_file}}</a></td>
+                {% endif %}
+                <td>{{data.commited}}</td>
+                <td>{{ data.upload_time}}</td>
+                <td>{{ data.finish_time}}</td>
+            </tr>
+        </tbody>
+        {% endfor %}
     </table>
-    </div>
+</div>
 {% else %}
 <h6 class="alert alert-warning row mt-5 w-75 align-items-center justify-content-center">No History</h6>
 {% endif %}
-    
+
 
 
 {% endblock body%}

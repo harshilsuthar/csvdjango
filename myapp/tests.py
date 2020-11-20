@@ -40,13 +40,13 @@ class ServerSelectTest(TestCase):
     
     def testPostDatabaseListMysql(self):
         self.c.post('/connectserver/',{'database_type':'mysql', 'username':'root', 'password':'root', 'host':'localhost', 'port':3306})
-        with open('data_file.csv') as csvfile:
+        with open('media/csvfiles/data_file.csv') as csvfile:
             response = self.c.post('/listdatabase/',{'database':'rental', 'table':'rental_vehicletype','csvfile':csvfile})
-        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.status_code,302)
     
     def testPostDatabaseListPostgres(self):
         self.c.post('/connectserver/',{'database_type':'postgres', 'username':'postgres', 'password':'root', 'host':'localhost', 'port':5432, 'database':'postgres'})
-        with open('data_file.csv') as csvfile:
+        with open('media/csvfiles/data_file.csv') as csvfile:
             response = self.c.post('/listdatabase/',{'database':'postgres', 'table':'mytable','csvfile':csvfile})
         
         pass
@@ -58,19 +58,19 @@ class ServerSelectTest(TestCase):
         self.c4.post('/connectserver/',{'database_type':'mysql', 'username':'root', 'password':'root', 'host':'localhost', 'port':3306})
         self.c5.post('/connectserver/',{'database_type':'mysql', 'username':'root', 'password':'root', 'host':'localhost', 'port':3306})
 
-        with open('data_file.csv') as csvfile:
+        with open('media/csvfiles/data_file.csv') as csvfile:
             response1 = self.c.post('/listdatabase/',{'database':'rental', 'table':'rental_vehicletype','csvfile':csvfile})
-        with open('data_file.csv') as csvfile:
+        with open('media/csvfiles/data_file.csv') as csvfile:
             response2 = self.c2.post('/listdatabase/',{'database':'postgres', 'table':'mytable','csvfile':csvfile})
-        with open('data_file.csv') as csvfile:
+        with open('media/csvfiles/data_file.csv') as csvfile:
             response3 = self.c3.post('/listdatabase/',{'database':'rental', 'table':'rental_vehicletype','csvfile':csvfile})
-        with open('data_file.csv') as csvfile:
+        with open('media/csvfiles/data_file.csv') as csvfile:
             response4 = self.c4.post('/listdatabase/',{'database':'rental', 'table':'rental_vehicletype','csvfile':csvfile})
-        with open('data_file.csv') as csvfile:
+        with open('media/csvfiles/data_file.csv') as csvfile:
             response5 = self.c5.post('/listdatabase/',{'database':'rental', 'table':'rental_vehicletype','csvfile':csvfile})
         
-        self.assertEqual(response1.status_code,200)
-        self.assertEqual(response2.status_code,200)
-        self.assertEqual(response3.status_code,200)
-        self.assertEqual(response4.status_code,200)
-        self.assertEqual(response5.status_code,200)
+        self.assertEqual(response1.status_code,302)
+        self.assertEqual(response2.status_code,302)
+        self.assertEqual(response3.status_code,302)
+        self.assertEqual(response4.status_code,302)
+        self.assertEqual(response5.status_code,302)

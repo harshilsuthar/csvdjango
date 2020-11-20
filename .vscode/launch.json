@@ -6,7 +6,7 @@
     "configurations": [
 
         {
-            "pythonPath": "C:/users/shars/Anaconda3/envs/mydjango/python.exe",
+            "python": "C:/users/shars/Anaconda3/envs/mydjango/python.exe",
             "name": "Python: Django",
             "type": "python",
             "request": "launch",

@@ -27,9 +27,14 @@
             <tr>
                 <td colspan="2"><center><input type="submit" value="Submit" class="btn btn-success" /></center></td>
             </tr>
+            
+            {% if error %}
             <tr>
                 <td colspan="2">{{error}}</td>
             </tr>
+            {% endif %}
+                
+            
         </table>
     </center>
 

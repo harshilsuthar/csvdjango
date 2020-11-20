@@ -19,6 +19,7 @@ from django.http import JsonResponse
 from django.shortcuts import HttpResponse, redirect, render, reverse
 from django.views import generic
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib import messages
 
 from . import models
 from .forms import ConnectServerForm
@@ -37,7 +38,7 @@ master_thread_list = []
 is_thread_manager_running = False
 que = queue.Queue()
 
-
+#make thread returnable and terminable
 def _async_raise(tid, exctype):
     """raises the exception, performs cleanup if needed"""
     if not inspect.isclass(exctype):
@@ -122,6 +123,7 @@ class DatabaseConfigView(generic.FormView):
             self.request.session['username'] = username
             self.request.session['port'] = port
             self.request.session['host'] = host
+            self.request.session['password'] = password
             if database_type == 'postgres':
                 postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=username,
                                                                      password=password,
@@ -290,11 +292,12 @@ def listDatabaseView(request):
                     t2.start()
                 print('csv check thread creation and handle time for starting background processing:',
                       time.time()-start_time)
-
+                request.session['ListDatabaseViewError'] = 'File Checking Under Process!!'
                 return redirect('myapp:ListDatabaseView')
 
             except Exception as ex:
                 print(ex)
+                request.session['ListDatabaseViewError'] = str(ex)
                 return redirect('myapp:ListDatabaseView')
     except Exception as ex:
         print(ex)
@@ -444,7 +447,7 @@ def csvThreadCreator(request, database, data, table, header, raw_header, user, c
         data_check_time += time.time()-start_time
         error_rows.sort()
 
-        # creating file if error list is greater than 20.
+        # creating file if error list contains data.
         if len(error_rows) > 0:
             start_time = time.time()
             file = 'error_file_static.csv'
@@ -479,19 +482,37 @@ def csvThreadCreator(request, database, data, table, header, raw_header, user, c
             print('error while updating model state to error inside csvThreadCreator')
             print(ex)
 
+
 # its a thread process of csvthread, called by csvThreadCreator
-
-
 def csvThread(request, database, data, table, header, startvalue, jumpvalue, commit):
     error_rows = []
     try:
         # creating connection to database
+        database_type = request.session['database_type']
+        if database_type == 'postgres':
+            global postgres_pool
+            try:
+                postgres_pool.closeall()
+            except Exception as ex:
+                print(ex)
+            finally:
+                try:
+                    postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=request.session['username'],
+                                                                     password=request.session['password'],
+                                                                     host=request.session['host'],
+                                                                     port=request.session['port'],
+                                                                     database=database)
+
+                except Exception as ex:
+                    print(ex)
+
         conn = makeconnection(request)
         cursor = conn.cursor()
-        database_type = request.session['database_type']
         if database_type == 'mysql':
             databasequery = 'USE %s' % (database)
             cursor.execute(databasequery)
+        
+        
         # global forloop_counter
 
         # checking if error occur while try to adding data into table, if error occured add into list
@@ -521,6 +542,7 @@ def csvThread(request, database, data, table, header, startvalue, jumpvalue, com
 # thread management ends here
 
 
+# it seperates header, data and raw_header from csv file data.
 def csvSplitter(user):
     try:
         data = []
@@ -543,13 +565,13 @@ def csvSplitter(user):
             else:
                 row = str(tuple(row))
                 data.append(row)
-        return  header, raw_header, data
+        return header, raw_header, data
     except Exception as ex:
         print(ex)
         return None, None, None
+
+
 # table schema view
-
-
 def showTableColumns(request):
 
     if request.method == 'GET':
