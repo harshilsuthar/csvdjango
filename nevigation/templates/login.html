@@ -51,7 +51,7 @@
 								{{ form.username }}
 								<span class="focus-input100" data-placeholder="{{ form.username.label }}"></span>
 							</div>
-							
+
 							{% if form.errors.username %}
 							<div class="mt-1 alert alert-danger">{{ form.errors.username }}</div>
 							{% endif %}
@@ -66,7 +66,7 @@
 								{{ form.password }}
 								<span class="focus-input100" data-placeholder="{{ form.password.label }}"></span>
 							</div>
-							
+
 							{% if form.errors.password %}
 							<div class="mt-1 alert alert-danger">{{ form.errors.password  }}</div>
 							{% endif %}
@@ -131,13 +131,19 @@
 	</body>
 	<!-- this will check if any text field is written or not -->
 	<script>
-		$(".input100").each(function () {
-			if ($(this).val().trim() != "") {
-				$(this).addClass("has-val");
-			} else {
-				$(this).removeClass("has-val");
-			}
-		});
+		$(window).on('load', function () {
+			// code here
+			console.log('ok')
+			$(".input100").each(function () {
+				console.log($(this).val())
+				if ($(this).val().trim() != "") {
+					$(this).addClass("has-val");
+				}
+				else {
+					$(this).removeClass("has-val");
+				}
+			});
+		});		
 	</script>
 
 </html>

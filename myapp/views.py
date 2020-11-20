@@ -1,8 +1,6 @@
-import csv
 import ctypes
 import hashlib
 import inspect
-import os
 import queue
 import threading
 import time
@@ -20,6 +18,8 @@ from django.shortcuts import HttpResponse, redirect, render, reverse
 from django.views import generic
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from . import models
 from .forms import ConnectServerForm
@@ -83,6 +83,7 @@ class Thread(threading.Thread):
 
 
 # making connection pool to database
+@login_required
 def makeconnection(request):
     try:
         if request.session['database_type'] == 'mysql':
@@ -96,7 +97,8 @@ def makeconnection(request):
 
 
 # server select view
-class DatabaseConfigView(generic.FormView):
+
+class DatabaseConfigView(LoginRequiredMixin,generic.FormView):
     form_class = ConnectServerForm
     template_name = 'connectserver.html'
     success_url = '/'
@@ -156,6 +158,7 @@ class DatabaseConfigView(generic.FormView):
 
 
 # rendering table list into selectdatabase.html from selecttable.html
+@login_required
 def createModel(request):
     if request.method == 'GET':
         tablelist = []
@@ -191,6 +194,7 @@ def createModel(request):
 
 
 # database list, tablelist, csvfile GET and POST method
+@login_required
 def listDatabaseView(request):
     try:
         # creating connection according to server
@@ -304,6 +308,7 @@ def listDatabaseView(request):
 
 
 # getting form using ajax try to put data inside database but not commiting.
+@login_required
 def csvCheck(request):
     if request.method == 'POST':
         try:
@@ -572,6 +577,7 @@ def csvSplitter(user):
 
 
 # table schema view
+@login_required
 def showTableColumns(request):
 
     if request.method == 'GET':

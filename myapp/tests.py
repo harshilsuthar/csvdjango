@@ -11,7 +11,6 @@ class ServerSelectTest(TestCase):
     def testGetServer(self):
         response = self.c.get('')
         self.assertEqual(response.status_code,302)
-        pass
 
     def testGetServerForm(self):
         response = self.c.get('/connectserver/')
@@ -48,8 +47,6 @@ class ServerSelectTest(TestCase):
         self.c.post('/connectserver/',{'database_type':'postgres', 'username':'postgres', 'password':'root', 'host':'localhost', 'port':5432, 'database':'postgres'})
         with open('media/csvfiles/data_file.csv') as csvfile:
             response = self.c.post('/listdatabase/',{'database':'postgres', 'table':'mytable','csvfile':csvfile})
-        
-        pass
     
     def testMultipleUserAccess(self):
         self.c.post('/connectserver/',{'database_type':'mysql', 'username':'root', 'password':'root', 'host':'localhost', 'port':3306})

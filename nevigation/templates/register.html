@@ -185,12 +185,18 @@
 		</script>
 	</body>
 	<script>
-		$(".input100").each(function () {
-			if ($(this).val().trim() != "") {
-				$(this).addClass("has-val");
-			} else {
-				$(this).removeClass("has-val");
-			}
+		$(window).on('load', function () {
+			// code here
+			console.log('ok')
+			$(".input100").each(function () {
+				console.log($(this).val())
+				if ($(this).val().trim() != "") {
+					$(this).addClass("has-val");
+				}
+				else {
+					$(this).removeClass("has-val");
+				}
+			});
 		});
 	</script>
 
