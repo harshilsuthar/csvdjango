@@ -32,11 +32,12 @@
                 <th>commited</th>
                 <th>upload_time</th>
                 <th>finish_time</th>
+                <th>Action</th>
             </tr>
         </thead>
         {% for data in history_data %}
         <tbody>
-            <tr>
+            <tr>    
                 <td>{{data.server_name}}</td>
                 <td>{{data.server_username}}</td>
                 <td>{{ data.server_port}}</td>
@@ -47,7 +48,7 @@
                 <td>{{ data.process_state}}</td>
                 {% if data.error_file == '' and data.process_state == 'error'%}
                 <td>
-                    <h6 style="color: red;">No File Found</h6>
+                    <h6 style="color: red;">File Not Found</h6>
                 </td>
                 {% elif data.error_file == '' and data.process_state == 'error'%}
                 <td>
@@ -59,6 +60,10 @@
                 <td>{{data.commited}}</td>
                 <td>{{ data.upload_time}}</td>
                 <td>{{ data.finish_time}}</td>
+                <td>
+                    <center><a href="{% url 'upload_manage:DeleteHistory' data.id %}"><i
+                               class="fa fa-trash text-danger fa-2x" aria-hidden="true"></i></a></center>
+                </td>
             </tr>
         </tbody>
         {% endfor %}
@@ -71,3 +76,14 @@
 
 
 {% endblock body%}
+
+{% block endscript %}
+    <script>
+        $( document ).ready(function() {
+            $('th').each(function(){
+                $(this).css('text-transform','capitalize')
+            })
+        })
+    </script>
+{% endblock endscript %}
+    
