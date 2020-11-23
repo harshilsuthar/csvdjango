@@ -34,10 +34,9 @@ data_check_count = 0
 
 
 subprocess_thread_list = []
-master_thread_list = []
+parallel_user_thread_dict = dict()
 is_thread_manager_running = False
 que = queue.Queue()
-
 #make thread returnable and terminable
 def _async_raise(tid, exctype):
     """raises the exception, performs cleanup if needed"""
@@ -136,23 +135,26 @@ class DatabaseConfigView(LoginRequiredMixin,generic.FormView):
                 mysql_pool = mysql.connector.pooling.MySQLConnectionPool(
                     pool_name="mypool", pool_size=32, user=username, passwd=password, host=host, port=port)
         except psycopg2.Error as ex:
-            # print(ex)
+            print(ex)
             try:
                 return redirect('myapp:ConnectServer', error=ex)
-            except Exception:
+            except Exception as ex:
+                print(ex)
                 return redirect('myapp:ConnectServer', error='Unknown Error')
         except mysql.connector.errors.Error as ex:
-            # print(ex)
+            print(ex)
             try:
                 return redirect('myapp:ConnectServer', error=ex)
-            except Exception:
+            except Exception as ex:
+                print(ex)
                 return redirect('myapp:ConnectServer', error='Unknown Error')
         except Exception as ex:
-            # print(ex)
+            print(ex)
             print('final exception')
             try:
                 return redirect('myapp:ConnectServer', error=ex)
-            except Exception:
+            except Exception as ex:
+                print(ex)
                 return redirect('myapp:ConnectServer', error='Unknown Error')
         return redirect(reverse('myapp:ListDatabaseView'))
 
@@ -253,7 +255,7 @@ def listDatabaseView(request):
                 md5_hash = hashlib.md5()
                 md5_hash.update(csvfile.read())
                 digest = md5_hash.hexdigest()
-                error_model = models.CsvErrorFile.objects.filter(user=User.objects.get(id=1), server_name=database_type,
+                error_model = models.CsvErrorFile.objects.filter(user=request.user, server_name=database_type,
                                                                  server_username=username, server_port=port, server_host=host,
                                                                  server_database=database, server_table=table, uploaded_file_hash=digest,
                                                                  commited=True).exclude(process_state='error')
@@ -261,7 +263,7 @@ def listDatabaseView(request):
                     request.session['ListDatabaseViewError'] = 'request is already fulfiled, check history for error data in csvfile'
                     return redirect('myapp:ListDatabaseView')
                 else:
-                    error_model = models.CsvErrorFile(user=User.objects.get(id=1), server_name=database_type, server_username=username,
+                    error_model = models.CsvErrorFile(user=request.user, server_name=database_type, server_username=username,
                                                       server_port=port, server_host=host, server_database=database, server_table=table,
                                                       uploaded_file=csvfile, process_state='processing',
                                                       uploaded_file_hash=digest, commited=True)
@@ -273,7 +275,6 @@ def listDatabaseView(request):
                 header, raw_header, data = csvSplitter(user)
                 # setting global counter for thread
                 # global total_counter
-                global master_thread_list
                 global is_thread_manager_running
                 # total_counter = len(data1)
                 # print('totalcounter---------', total_counter)
@@ -283,10 +284,10 @@ def listDatabaseView(request):
                 commit = True
                 t1 = threading.Thread(target=csvThreadCreator, args=(
                     request, database, data, table, header, raw_header, user, commit, model_pk))
-                master_thread_list.insert(0, t1)
-                print(len(master_thread_list),
-                      'thread added in master_thread_list by listDatabaseView for commiting')
-
+                if parallel_user_thread_dict.get(request.user.username) == None:
+                    parallel_user_thread_dict[request.user.username] = [t1]
+                else:
+                    parallel_user_thread_dict[request.user.username].insert(0, t1)
                 # if thread manager is shutdown then turn it on.
                 if is_thread_manager_running == False:
                     is_thread_manager_running = True
@@ -329,14 +330,13 @@ def csvCheck(request):
             md5_hash = hashlib.md5()
             md5_hash.update(csvfile.read())
             digest = md5_hash.hexdigest()
-            error_model = models.CsvErrorFile.objects.filter(user=User.objects.get(
-                id=1), server_name=database_type, server_username=username,
+            error_model = models.CsvErrorFile.objects.filter(user=request.user, server_name=database_type, server_username=username,
                 server_port=port, server_host=host, server_database=database,
                 server_table=table, uploaded_file_hash=digest, commited=False).exclude(process_state='error')
             if len(error_model) != 0:
                 return JsonResponse({'error_rows': 'request is already fulfilled, check history for error data file'})
             else:
-                error_model = models.CsvErrorFile(user=User.objects.get(id=1), server_name=database_type,
+                error_model = models.CsvErrorFile(user=request.user, server_name=database_type,
                                                   server_username=username, server_port=port,
                                                   server_host=host, server_database=database, server_table=table,
                                                   uploaded_file=csvfile, process_state='processing',
@@ -350,8 +350,8 @@ def csvCheck(request):
 
             # setting global counter for thread
             # global total_counter
-            global master_thread_list
             global is_thread_manager_running
+            global parallel_user_thread_dict
             # total_counter = len(data1)
             # print('totalcounter---------', total_counter)
             start_time = time.time()
@@ -360,10 +360,10 @@ def csvCheck(request):
             commit = False
             t1 = threading.Thread(target=csvThreadCreator, args=(
                 request, database, data, table, header, raw_header, user, commit, model_pk))
-            master_thread_list.append(t1)
-            print(len(master_thread_list),
-                  'thread added in master_thread_list by csvcheck')
-
+            if parallel_user_thread_dict.get(request.user.username) == None:
+                parallel_user_thread_dict[request.user.username] = [t1]
+            else:
+                parallel_user_thread_dict[request.user.username].append(t1)
             if is_thread_manager_running == False:
                 is_thread_manager_running = True
                 print('calling thread manager from csvcheck')
@@ -392,25 +392,41 @@ def csvCheck(request):
 # this function act as queue.
 def threadManager():
     try:
-        global master_thread_list
         global is_thread_manager_running
         print('thread manager is running')
-        print(len(master_thread_list), 'master thread list len')
         start_time = time.time()
-        while True:
-            for thread in master_thread_list:
-                # get thread from the list and start and wait for its execution
-                thread.start()
-                thread.join()
-                master_thread_list.remove(thread)
-                time.sleep(0.1)
-            if len(master_thread_list) == 0:
-                is_thread_manager_running = False
-                print('stopping master thread manager')
-                print('total master thread wakeup time is:',
-                      time.time()-start_time)
-                print(data_check_time/data_check_count)
-                break
+
+        start_time = time.time()
+        global parallel_user_thread_dict
+        while not all(x==[] for x in parallel_user_thread_dict.values()):
+            for k,v in parallel_user_thread_dict.items():
+                if len(v)>0:
+                    if v[0].is_alive():
+                        time.sleep(0.001)
+                    elif v[0]._is_stopped:
+                        v.pop(0)
+                        parallel_user_thread_dict[k] = v
+
+                    elif v[0]._initialized:
+                        v[0].start()
+            time.sleep(1)
+        is_thread_manager_running = False
+        print('all task completes, thread manager is going to sleep=============')
+        # print(time.time()-start_time)
+        # while True:
+        #     for thread in master_thread_list:
+        #         # get thread from the list and start and wait for its execution
+        #         thread.start()
+        #         thread.join()
+        #         master_thread_list.remove(thread)
+        #         time.sleep(0.1)
+        #     if len(master_thread_list) == 0:
+        #         is_thread_manager_running = False
+        #         print('stopping master thread manager')
+        #         print('total master thread wakeup time is:',
+        #               time.time()-start_time)
+        #         print(data_check_time/data_check_count)
+        #         break
     except Exception as ex:
         print('exception in thread manager -----------------------')
         print(ex)
@@ -527,6 +543,7 @@ def csvThread(request, database, data, table, header, startvalue, jumpvalue, com
                 insertquery = "INSERT INTO %s %s VALUES %s;" % (
                     table, header, row)
                 cursor.execute(insertquery)
+                time.sleep(0.0005)
             except Exception as ex:
                 error_rows.extend([startvalue+row_count*jumpvalue])
     except Exception as ex:
@@ -545,7 +562,21 @@ def csvThread(request, database, data, table, header, startvalue, jumpvalue, com
             print(len(error_rows), '-------finally')
             return error_rows
 # thread management ends here
+def parallelUserThreadHandler():
+    start_time = time.time()
+    global parallel_user_thread_dict
+    while not all(x==[] for x in parallel_user_thread_dict.values()):
+        for k,v in parallel_user_thread_dict.items():
+            if len(v)>0:
+                if v[0].is_alive():
+                    time.sleep(0.001)
+                elif v[0]._is_stopped:
+                    v.pop(0)
+                    parallel_user_thread_dict[k] = v
 
+                elif v[0]._initialized:
+                    v[0].start()
+    print(time.time()-start_time)
 
 # it seperates header, data and raw_header from csv file data.
 def csvSplitter(user):
