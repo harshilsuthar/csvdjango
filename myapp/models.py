@@ -10,6 +10,7 @@ class CsvErrorFile(models.Model):
     server_database = models.CharField(max_length=50,blank=True)
     server_table = models.CharField(max_length=50,blank=True)
     process_state = models.CharField(max_length=20,choices=(('processing','Processing'),('completed','Completed'),('error','Error')),blank=True)
+    message = models.CharField(max_length=200)
     uploaded_file = models.FileField(upload_to='uploads', blank=True)
     uploaded_file_hash = models.CharField(max_length=32, blank=True)
     error_file = models.FileField(upload_to='error_files', blank=True)

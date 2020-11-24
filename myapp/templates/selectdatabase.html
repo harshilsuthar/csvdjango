@@ -44,21 +44,19 @@
                             </td>
                             <td>
                                 <button id='id_checkcsv' class="btn btn-success" type="button"
-                                        style="width: 100%;">Check
-                                    CSV</button>
+                                        style="width: 100%;">Validate</button>
                             </td>
                         </tr>
                         <tr>
                             <td colspan="3">
-                                <center><input type="submit" value="Force Commit" class="btn btn-success" /></center>
+                                <center><input type="submit" value="Commit" class="btn btn-success" /></center>
                             </td>
                         </tr>
-                        
                     </table>
                 </form>
                 <div hidden='true' id='id_error_div' style="margin-top: 2%;">
                     <center>
-                        <h3 class="alert alert-warning"  id='id_error_row'></h3>
+                        <h3 class="alert alert-warning" id='id_error_row'></h3>
                     </center>
                     <table class="table" id='error_table'>
                     </table>
@@ -99,7 +97,7 @@
             success: function (data) {
                 $('#tablelist').html(data)
                 // get table column list after table list updated
-                $('#id_getcolumns').click()
+                $('#id_getcolumns')
             }
         })
     }
@@ -109,7 +107,7 @@
     selecteddatabase = () => {
         var database = $('#database').val()
         loadtables(database)
-        
+
     }
 </script>
 
@@ -173,14 +171,14 @@
             },
             success: function (data) {
                 console.log('start printing')
-                
+
                 // clearInterval(timer)
 
                 // send alert if file not found or broken
                 if (data['error_rows'] != '') {
                     $('#id_progress_parent').prop('hidden', true)
                     console.log($('#id_progress_parent').prop('hidden'))
-                    $('#id_error_div').prop('hidden',false)
+                    $('#id_error_div').prop('hidden', false)
                     $('#id_error_row').html(data['error_rows'])
                 }
 
@@ -241,9 +239,9 @@
 </script> -->
 
 <script>
-    if('{{error}}'!='None'){
+    if ('{{error}}' != 'None') {
         console.log('{{error}}')
-        $('#id_error_div').prop('hidden',false)
+        $('#id_error_div').prop('hidden', false)
         $('#id_error_row').html('{{error}}')
     }
 </script>

@@ -4,9 +4,8 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
-        {   
-            "python": "C:/users/shars/Anaconda3/envs/mydjango/python.exe",
+        {
+            "pythonPath": "C:/users/shars/Anaconda3/envs/mydjango/python.exe",
             "name": "Python: Django",
             "type": "python",
             "request": "launch",
@@ -15,17 +14,6 @@
                 "runserver"
             ],
             "django": true
-        },
-        // {
-        //     "python": "C:/users/shars/Anaconda3/envs/mydjango/python.exe",
-        //     "name": "Python: Django",
-        //     "type": "python",
-        //     "request": "launch",
-        //     "program": "${workspaceFolder}\\manage.py",
-        //     "args": [
-        //         "runserver"
-        //     ],
-        //     "django": true
-        // }
+        }
     ]
 }

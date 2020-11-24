@@ -1,45 +1,23 @@
 {% extends 'base.html' %}
 {% block body %}
-<form method='POST'>
+<div class="d-flex justify-content-center">
+<form method='POST' class="w-25 ">
     {% csrf_token %}
     <center>
-        <table class='table card' style="width:max-content; margin-top: 2%;">
-            <tr>
-                <td>{{form.database_type.label}}</td>
-                <td>{{form.database_type}}</td>
-            </tr>
-            <tr>
-                <td>{{form.username.label}}</td>
-                <td>{{form.username}}</td>
-            </tr>
-            <tr>
-                <td>{{form.password.label}}</td>
-                <td>{{form.password}}</td>
-            </tr>
-            <tr>
-                <td>{{form.host.label}}</td>
-                <td>{{form.host}}</td>
-            </tr>
-            <tr>
-                <td>{{form.port.label}}</td>
-                <td>{{form.port}}</td>
-            </tr>
-            <tr>
-                <td colspan="2"><center><input type="submit" value="Submit" class="btn btn-success" /></center></td>
-            </tr>
-            
-            {% if error %}
-            <tr>
-                <td colspan="2">{{error}}</td>
-            </tr>
-            {% endif %}
-                
-            
-        </table>
+        {% for field in form %}
+        <div class='form-group'>
+            <td>{{field.label}}</td>
+            <td>{{field}}</td>
+        </div>
+        {% endfor %}
+        <center><input type="submit" value="Submit" class="btn btn-success" /></center>
+        {% if error %}
+            {{error}}
+        {% endif %}
     </center>
 
 </form>
-
+</div>
 {% endblock body %}
 {% block endscript %}
 <script>

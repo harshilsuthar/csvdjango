@@ -17,21 +17,22 @@
 
 {% if history_data %}
 <div class="table-wrapper-scroll-y my-custom-scrollbar">
-    <table class="table mb-0" style="width: max-content; height: min-content;">
+    <table class="table mb-0" style="height: min-content; max-width: max-content; width: max-content;">
         <thead>
             <tr>
-                <th>server_name</th>
-                <th>server_username</th>
-                <th>server_port</th>
-                <th>server_host</th>
-                <th>server_database</th>
-                <th>server_table</th>
-                <th>uploaded_file</th>
-                <th>process_state</th>
-                <th>error_file</th>
+                <th>server name</th>
+                <th>server username</th>
+                <th>server port</th>
+                <th>server host</th>
+                <th>server database</th>
+                <th>server table</th>
+                <th>uploaded file</th>
+                <th>process state</th>
+                <th>message</th>
+                <th>error file</th>
                 <th>commited</th>
-                <th>upload_time</th>
-                <th>finish_time</th>
+                <th>upload time</th>
+                <th>finish time</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -46,16 +47,20 @@
                 <td>{{ data.server_table}}</td>
                 <td><a href="/media/{{data.uploaded_file}}" class="d-flex justify-content-center"><i class="fa fa-download fa-2x"></i></a></td>
                 <td>{{ data.process_state}}</td>
+                
                 {% if data.error_file == '' and data.process_state == 'error'%}
+                <td>{{ data.message }}</td>
                 <td>
                     <h6 style="color: red;">File Not Found</h6>
                 </td>
                 
                 {% elif data.error_file == '' and data.process_state == 'completed'%}
+                <td>None</td>
                 <td>
                     <h6 style="color: green;">No Error Found</h6>
                 </td>
                 {% else %}
+                <td>None</td>
                 <td><a href="/media/{{data.error_file}}" class="d-flex justify-content-center"><i class="fa fa-download fa-2x"></i></a></td>
                 {% endif %}
                 <td>{{data.commited}}</td>

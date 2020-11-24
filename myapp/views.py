@@ -88,9 +88,42 @@ def makeconnection(request):
         if request.session['database_type'] == 'mysql':
             conn = mysql_pool.get_connection()
         elif request.session['database_type'] == 'postgres':
-            conn = postgres_pool.getconn()
+            try:
+                database = request.session['database']
+            except:
+                database = 'postgres'
+            global postgres_pool
+            if postgres_pool != '':
+                conn_postgres = postgres_pool.getconn()
+                cursor = conn_postgres.cursor()
+                cursor.execute("SELECT current_database();")
+                for data in cursor.fetchall():
+                    print('---------------------',data[0])
+                    if data[0] != request.session['database']:
+                        try:
+                            postgres_pool.closeall()
+                        except Exception as ex:
+                            print('inside make connection postgres')
+                            print(ex)
+                        finally:
+                            try:
+                                postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=request.session['username'],
+                                                                                password=request.session['password'],
+                                                                                host=request.session['host'],
+                                                                                port=request.session['port'],
+                                                                                database=database)
+                                conn = postgres_pool.getconn()
+                            except Exception as ex:
+                                print(ex)
+                    else:
+                        conn = postgres_pool.getconn()
+                
+                cursor.close()
+                conn_postgres.close()
+            
         return conn
     except Exception as ex:
+        print('inside makeconnection final exception')
         print(ex)
         return None
 
@@ -101,9 +134,14 @@ class DatabaseConfigView(LoginRequiredMixin,generic.FormView):
     form_class = ConnectServerForm
     template_name = 'connectserver.html'
     success_url = '/'
+   
 
     def get_context_data(self, **kwargs):
         try:
+            global mysql_pool
+            global postgres_pool
+            mysql_pool = ''
+            postgres_pool = ''
             context = super().get_context_data(**kwargs)
             context['error'] = self.kwargs['error']
             return context
@@ -127,16 +165,18 @@ class DatabaseConfigView(LoginRequiredMixin,generic.FormView):
             self.request.session['password'] = password
             if database_type == 'postgres':
                 postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=username,
-                                                                     password=password,
-                                                                     host=host,
-                                                                     port=port,
-                                                                     database="postgres")
+                                                                    password=password,
+                                                                    host=host,
+                                                                    port=port,
+                                                                    database="postgres")
             elif database_type == 'mysql':
                 mysql_pool = mysql.connector.pooling.MySQLConnectionPool(
                     pool_name="mypool", pool_size=32, user=username, passwd=password, host=host, port=port)
         except psycopg2.Error as ex:
             print(ex)
             try:
+                if str(ex) == "'NoneType' object has no attribute 'cursor'":
+                    return redirect('myapp:ConnectServer', error='Not connected')
                 return redirect('myapp:ConnectServer', error=ex)
             except Exception as ex:
                 print(ex)
@@ -144,6 +184,8 @@ class DatabaseConfigView(LoginRequiredMixin,generic.FormView):
         except mysql.connector.errors.Error as ex:
             print(ex)
             try:
+                if str(ex) == "'NoneType' object has no attribute 'cursor'":
+                    return redirect('myapp:ConnectServer', error='Not connected')
                 return redirect('myapp:ConnectServer', error=ex)
             except Exception as ex:
                 print(ex)
@@ -152,6 +194,8 @@ class DatabaseConfigView(LoginRequiredMixin,generic.FormView):
             print(ex)
             print('final exception')
             try:
+                if str(ex) == "'NoneType' object has no attribute 'cursor'":
+                    return redirect('myapp:ConnectServer', error='Not connected')
                 return redirect('myapp:ConnectServer', error=ex)
             except Exception as ex:
                 print(ex)
@@ -165,6 +209,7 @@ def createModel(request):
     if request.method == 'GET':
         tablelist = []
         database = request.GET.get('name')
+        request.session['database'] = database
         try:
             if request.session['database_type'] == 'mysql':
                 conn = makeconnection(request)
@@ -185,6 +230,7 @@ def createModel(request):
                 showtables = "SELECT * FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema';"
                 cursor.execute(showtables)
                 for tables in cursor.fetchall():
+                    print(tables[1])
                     tablelist.append(tables[1])
                 cursor.close()
                 conn.close()
@@ -209,12 +255,18 @@ def listDatabaseView(request):
 
             except psycopg2.Error as ex:
                 print(ex)
+                if str(ex) == "'NoneType' object has no attribute 'cursor'":
+                    return redirect('myapp:ConnectServer', error='Not connected')
                 return redirect('myapp:ConnectServer', error=ex)
             except mysql.connector.errors.Error as ex:
                 print(ex)
+                if str(ex) == "'NoneType' object has no attribute 'cursor'":
+                    return redirect('myapp:ConnectServer', error='Not connected')
                 return redirect('myapp:ConnectServer', error=ex)
             except Exception as ex:
-                print(ex)
+                print(str(ex))
+                if str(ex) == "'NoneType' object has no attribute 'cursor'":
+                    return redirect('myapp:ConnectServer', error='Not connected')
                 return redirect('myapp:ConnectServer', error=ex)
 
             # executing show database query according to server
@@ -442,6 +494,23 @@ def csvThreadCreator(request, database, data, table, header, raw_header, user, c
 
         subprocess_thread_list = []
         # creating multiple threads for checking csv
+        if request.session['database_type'] == 'mysql':
+            check_columns = "SELECT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA`= '%s' AND `TABLE_NAME`= '%s';"%(database,table)
+        elif request.session['database_type'] == 'postgres':
+            check_columns = "SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s';" % (
+                table)
+        conn = makeconnection(request)
+        cursor = conn.cursor()
+        cursor.execute(check_columns)
+        column_list = [v for v in cursor.fetchall()]
+        flag = 0
+        cursor.close()
+        conn.close()
+        if all(x in [ls[0] for ls in column_list] for x in raw_header):
+            print('ok')
+        else:
+            raise Exception('CSV header is not matching with database table')
+
         for ct in range(thread_count):
             thread_value = Thread(target=lambda q, args1: q.put(csvThread(*args1)), args=(
                 que, [request, database, data[ct::thread_count], table, header, ct, thread_count, commit]))
@@ -498,6 +567,7 @@ def csvThreadCreator(request, database, data, table, header, raw_header, user, c
         try:
             error_model = models.CsvErrorFile.objects.get(pk=model_pk)
             error_model.process_state = 'error'
+            error_model.message = ex
             error_model.save()
         except Exception as ex:
             print('error while updating model state to error inside csvThreadCreator')
@@ -510,23 +580,6 @@ def csvThread(request, database, data, table, header, startvalue, jumpvalue, com
     try:
         # creating connection to database
         database_type = request.session['database_type']
-        if database_type == 'postgres':
-            global postgres_pool
-            try:
-                postgres_pool.closeall()
-            except Exception as ex:
-                print(ex)
-            finally:
-                try:
-                    postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=request.session['username'],
-                                                                     password=request.session['password'],
-                                                                     host=request.session['host'],
-                                                                     port=request.session['port'],
-                                                                     database=database)
-
-                except Exception as ex:
-                    print(ex)
-
         conn = makeconnection(request)
         cursor = conn.cursor()
         if database_type == 'mysql':
@@ -535,7 +588,6 @@ def csvThread(request, database, data, table, header, startvalue, jumpvalue, com
         
         
         # global forloop_counter
-
         # checking if error occur while try to adding data into table, if error occured add into list
         for row_count, row in enumerate(data):
             try:
@@ -556,27 +608,12 @@ def csvThread(request, database, data, table, header, startvalue, jumpvalue, com
             cursor.close()
             conn.close()
         except Exception as ex:
-            print("error in csvThrea, can't close cursor or conn")
+            print("error in csvThread, can't close cursor or conn")
             print(ex)
         finally:
             print(len(error_rows), '-------finally')
             return error_rows
 # thread management ends here
-def parallelUserThreadHandler():
-    start_time = time.time()
-    global parallel_user_thread_dict
-    while not all(x==[] for x in parallel_user_thread_dict.values()):
-        for k,v in parallel_user_thread_dict.items():
-            if len(v)>0:
-                if v[0].is_alive():
-                    time.sleep(0.001)
-                elif v[0]._is_stopped:
-                    v.pop(0)
-                    parallel_user_thread_dict[k] = v
-
-                elif v[0]._initialized:
-                    v[0].start()
-    print(time.time()-start_time)
 
 # it seperates header, data and raw_header from csv file data.
 def csvSplitter(user):
