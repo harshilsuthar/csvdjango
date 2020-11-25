@@ -8,8 +8,9 @@
 
     {% for row in columns %}
     <tr>
-        <td>{{row.0}}</td>
-        <td>{{row.1}}</td>
+        {% for data in row %}
+            <td>{{ data }}</td>
+        {% endfor %}
     </tr>
     
     {% endfor %}

@@ -20,12 +20,12 @@
     <table class="table mb-0" style="height: min-content; max-width: max-content; width: max-content;">
         <thead>
             <tr>
-                <th>server name</th>
-                <th>server username</th>
-                <th>server port</th>
+                <th>server</th>
+                <th>server user</th>
                 <th>server host</th>
-                <th>server database</th>
-                <th>server table</th>
+                <th>server port</th>
+                <th>database</th>
+                <th>table</th>
                 <th>uploaded file</th>
                 <th>process state</th>
                 <th>message</th>
@@ -41,8 +41,8 @@
             <tr>
                 <td>{{data.server_name}}</td>
                 <td>{{data.server_username}}</td>
-                <td>{{ data.server_port}}</td>
                 <td>{{ data.server_host}}</td>
+                <td>{{ data.server_port}}</td>
                 <td>{{ data.server_database}}</td>
                 <td>{{ data.server_table}}</td>
                 <td><a href="/media/{{data.uploaded_file}}" class="d-flex justify-content-center"><i class="fa fa-download fa-2x"></i></a></td>

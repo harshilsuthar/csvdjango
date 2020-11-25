@@ -12,5 +12,6 @@ urlpatterns = [
     path('createmodel/',views.createModel, name='CreateModel'),
     path('showtablecolumns/',views.showTableColumns, name='ShowTableColumns'),
     path('csvcheck/', views.csvCheck, name='CsvCheck'),
+    path('responseCsvHeader/', views.responseCsvHeader, name='ResponseCsvHeader'),
     # path('getcurrentprocesscount/',views.getCurrentProcessCount,name='GetCurrentProcessCount'),
 ] 

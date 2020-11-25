@@ -679,6 +679,43 @@ def showTableColumns(request):
                 return render(request, 'tablecolumnpostgres.html', {'columns': ''})
 
 
+def responseCsvHeader(request):
+    if request.method == 'POST':
+        try:
+            conn = makeconnection(request)
+            cursor = conn.cursor()
+            tablename = request.POST.get('table')
+            database = request.POST.get('database')
+            # print(tablename, database)
+            database_type = request.session['database_type']
+            if database_type == 'mysql':
+                select_query = "SHOW COLUMNS FROM %s;" % (tablename)
+                use_query = 'USE %s' % (database)
+                cursor.execute(use_query)
+            elif database_type == 'postgres':
+                select_query = "SELECT column_name,data_type  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s';" % (
+                    tablename)
+            cursor.execute(select_query)
+            column_list = []
+            for row in cursor.fetchall():
+                column_list.append(row)
+            cursor.close()
+            conn.close()
+            csvfile = request.FILES.get('csvfile')
+            if csvfile == None:
+                raise Exception('No file is Selected!!')
+            user = pandas.read_csv(csvfile)
+            header, raw_header, data = csvSplitter(user)
+            raw_header =list(map(str.strip, raw_header))
+            # print(raw_header)
+            # return JsonResponse({'header_data':raw_header,'error_rows':''})
+            if database_type == 'mysql':
+                return render(request, 'tablecolumnsql.html', {'columns': column_list, 'header_data':raw_header, 'error_rows':'None'})
+            elif database_type == 'postgres':
+                return render(request, 'tablecolumnpostgres.html', {'columns': column_list, 'header_data':raw_header})
+        except Exception as ex:
+            print(ex)
+            return JsonResponse({'error_rows':str(ex)})
 #increase progressbar view
 # def getCurrentProcessCount(request):
 #     if request.method == 'GET':

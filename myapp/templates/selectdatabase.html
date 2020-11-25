@@ -1,79 +1,55 @@
 {% extends 'base.html' %}
 {% block headscript %}
-<style>
-    input {
-        width: 200px;
-    }
-
-</style>
 
 {% endblock headscript %}
 {% block body %}
 
-<div>
-    <table class="table">
-        <tr>
-            <td>
-                <form method="post" enctype="multipart/form-data" id='file-upload-form'>
-                    {% csrf_token %}
-                    <table class='table card' style="width: max-content;">
-                        <tr>
-                            <td>Select Database</td>
-                            <td><select name='database' onchange="selecteddatabase()" id='database' required>
-                                    {% for list in databases %}
-                                    <option value='{{list}}'>{{ list }}</option>
-                                    {% endfor %}
-                                </select></td>
-                        </tr>
-                        <tr>
-                            <td>Select Table</td>
-                            <td>
-                                <div id='tablelist'></div>
-                            </td>
-                            <td>
-                                <button id='id_getcolumns' class="btn btn-success" type="button"
-                                        style="width: 100%;">Get
-                                    Table Schema</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><label for='name'>Upload File:</label></td>
-                            <td>
-                                <input type='file' accept=".csv" name='csvfile' id='csvfileinput' required>
 
-                            </td>
-                            <td>
-                                <button id='id_checkcsv' class="btn btn-success" type="button"
-                                        style="width: 100%;">Validate</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="3">
-                                <center><input type="submit" value="Commit" class="btn btn-success" /></center>
-                            </td>
-                        </tr>
-                    </table>
-                </form>
-                <div hidden='true' id='id_error_div' style="margin-top: 2%;">
-                    <center>
-                        <h3 class="alert alert-warning" id='id_error_row'></h3>
-                    </center>
-                    <table class="table" id='error_table'>
-                    </table>
-                </div>
-            </td>
-            <td>
-                <div id='id_column_table' style="margin-top: 2%;"></div>
-            </td>
-        </tr>
+<form method="post" class="mt-4 card" enctype="multipart/form-data" id='file-upload-form'>
+    {% csrf_token %}
+<div class="row mt-2 ml-2 mr-2">
+    <div class="form-group col-3">
+        <label>Select Database</label>
+        <select name='database' class="form-control" onchange="selecteddatabase()" id='database' required>
+            {% for list in databases %}
+            <option value='{{list}}'>{{ list }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group col-3">
+        <label>Select Table</label>
+        <div id='tablelist'></div>
+        
+    </div>
+    <div class="form-group col-3">
+        <label for='name'>Upload File:</label>
+        <input type='file' class="form-control" accept=".csv" name='csvfile' id='csvfileinput' required>
+        
+    </div>
+    <div class="col-3 form-group row justify-content-around">
+        <button id='id_getcolumns' class="btn btn-success mt-1 col-md-11" type="button">Compare CSV</button>
+        <button id='id_checkcsv' class="btn btn-success mt-1 col-md-5" type="button">Validate</button>
+        <input type="submit" value="Commit" class="btn btn-success mt-1 col-md-5"/>
+    </div>
+</div>
+</form>
+<div hidden='true' id='id_error_div' style="margin-top: 2%;">
+    <center>
+        <h3 class="alert alert-warning" id='id_error_row'></h3>
+    </center>
+    <table class="table" id='error_table'>
     </table>
 </div>
+
+<div id='id_column_table' style="margin-top: 2%;"></div>
+<div id='id_csv_header' style="margin-top: 2%;"></div>
+
 <div hidden="true" id='id_progress_parent'>
     <h3 class='alert alert-warning'>Do Not Refresh While Checking For Errors In The File</h3>
     <div class="progress">
         <div id='id_progressbar' class="progress-bar progress-bar-striped bg-success" role="progressbar"
-             style="width: 0%"
-             aria-valuenow="2" aria-valuemin="0" aria-valuemax="100"></div>
+                style="width: 0%"
+                aria-valuenow="2" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
 </div>
 
@@ -84,149 +60,81 @@
 
 
 
-{% endblock body %}
+    {% endblock body %}
 
-{% block endscript%}
-<!-- setting database list and table list -->
-<script>
-    // setting database list and table list
-    loadtables = (list) => {
-        var url = '/createmodel/?name=' + list
-        $.ajax({
-            url: url,
-            success: function (data) {
-                $('#tablelist').html(data)
-                // get table column list after table list updated
-                $('#id_getcolumns')
-            }
-        })
-    }
-    $(document).ready(function () {
-        $('#database').change()
-    })
-    selecteddatabase = () => {
-        var database = $('#database').val()
-        loadtables(database)
-
-    }
-</script>
-
-<!-- setting column list -->
-<script>
-    // setting colunm list
-    $('#id_getcolumns').click(function () {
-        url = '/showtablecolumns/'
-        $.ajax({
-            url: url,
-            data: {
-                tablename: $('#id_table').val(),
-                database: $('#database').val()
-            },
-            success: function (data) {
-                $('#id_column_table').html(data)
-            }
-        })
-    })
-</script>
-
-<!-- getting form data on check csv button and checking for any error in the csv  -->
-<script>
-    // getting form data on check csv button and checking for any error in the csv
-    $('#id_checkcsv').click(function () {
-        // getting form data
-        var data = new FormData($('#file-upload-form').get(0));
-        // resetting error table data to blank
-        // $('#id_error_div').prop('hidden', true);
-        // $('#error_table').html('<tr><th>Row</th><th>Error Data</th></tr>')
-
-        // creating updating progressbar every second
-        // $('#id_progress_parent').prop('hidden', false)
-        // var timer = setInterval(setprogress, 1000)
-        // ajaxcall.abort(function(){clearInterval(timer)})
-        $.ajax({
-            data: data,
-            type: $('#file-upload-form').attr('method'),
-            url: '/csvcheck/',
-            cache: false,
-            processData: false,
-            contentType: false,
-            xhr: function () {
-                var xhr = new window.XMLHttpRequest();
-                $('#id_progress_parent').prop('hidden', false)
-                xhr.upload.addEventListener("progress", function (evt) {
-
-                    if (evt.lengthComputable) {
-                        var percentComplete = evt.loaded / evt.total;
-                        percentComplete = parseInt(percentComplete * 100);
-                        $('#id_progressbar').css('width', percentComplete);
-
-                        if (percentComplete === 100) {
-                            $('#id_progress_parent').prop('hidden', true)
-                        }
-
-                    }
-                }, false);
-
-                return xhr;
-            },
-            success: function (data) {
-                console.log('start printing')
-
-                // clearInterval(timer)
-
-                // send alert if file not found or broken
-                if (data['error_rows'] != '') {
-                    $('#id_progress_parent').prop('hidden', true)
-                    console.log($('#id_progress_parent').prop('hidden'))
-                    $('#id_error_div').prop('hidden', false)
-                    $('#id_error_row').html(data['error_rows'])
+    {% block endscript%}
+    <!-- setting database list and table list -->
+    <script>
+        // setting database list and table list
+        loadtables = (list) => {
+            var url = '/createmodel/?name=' + list
+            $.ajax({
+                url: url,
+                success: function (data) {
+                    $('#tablelist').html(data)
+                    // get table column list after table list updated
                 }
+            })
+        }
+        $(document).ready(function () {
+            $('#database').change()
+        })
+        selecteddatabase = () => {
+            var database = $('#database').val()
+            loadtables(database)
 
+        }
+    </script>
 
-                // if no error occurs send success message
-                // else if (data['error_rows'] == '') {
-                //     $('#id_error_div').prop('hidden', false);
-                //     $('#id_error_div').html(
-                //         '<center><h3><div class="alert alert-success"><strong>Success!</strong> Data Can Be Added Into Thes Database</div></h3></center>'
-                //     )
-                // }
+    <!-- getting form data on check csv button and checking for any error in the csv  -->
+    <script>
+        // getting form data on check csv button and checking for any error in the csv
+        $('#id_checkcsv').click(function () {
+            // getting form data
+            var data = new FormData($('#file-upload-form').get(0));
+            $.ajax({
+                data: data,
+                type: $('#file-upload-form').attr('method'),
+                url: '/csvcheck/',
+                cache: false,
+                processData: false,
+                contentType: false,
+                xhr: function () {
+                    var xhr = new window.XMLHttpRequest();
+                    $('#id_progress_parent').prop('hidden', false)
+                    xhr.upload.addEventListener("progress", function (evt) {
 
-                // if error occurs send data in form of table to error_table tag.
-                // else {
-                //     $('#id_error_div').prop('hidden', false);
-                //     if (data['file_bool']==true){
-                //         var file_path = data['file_url'];
-                //         file_path = '/'+file_path
-                //         console.log(file_path)
-                //         var a = document.createElement('A');
-                //         a.href = file_path;
-                //         a.download = file_path.substr(file_path.lastIndexOf('/') + 1);
-                //         document.body.appendChild(a);
-                //         a.click();
-                //         document.body.removeChild(a);
-                //         $('#id_error_div').html(
-                //         '<center><h3><div class="alert alert-danger"><strong>Fail!</strong> Error Containing Data Downloaded</div></h3></center>'
-                //     )
+                        if (evt.lengthComputable) {
+                            var percentComplete = evt.loaded / evt.total;
+                            percentComplete = parseInt(percentComplete * 100);
+                            $('#id_progressbar').css('width', percentComplete);
 
-                //     }
-                //     else if(data['file_bool']==false){
-                //     for (let row of data['error_rows']) {
-                //         //  enable this to print data in html (warning: if error data is too large browser will creash)
-                //         $('#error_table').append(
-                //             '<tr><td>' + row[0] + '</td><td>' + row[1] + '</td></tr>'
-                //         );
-                //     }}
-                //     // stop execution of iteratary updating progressbae
-                //     // final update on progressbar
-                //     setprogress()
-                //     console.log('data print successfully')
-                // }
-            }
-        });
-        return false;
-    })
-</script>
-<!-- <script>
+                            if (percentComplete === 100) {
+                                $('#id_progress_parent').prop('hidden', true)
+                            }
+                        }
+                    }, false);
+
+                    return xhr;
+                },
+                success: function (data) {
+                    console.log('start printing')
+
+                    // clearInterval(timer)
+
+                    // send alert if file not found or broken
+                    if (data['error_rows'] != '') {
+                        $('#id_progress_parent').prop('hidden', true)
+                        console.log($('#id_progress_parent').prop('hidden'))
+                        $('#id_error_div').prop('hidden', false)
+                        $('#id_error_row').html(data['error_rows'])
+                    }
+                }
+            });
+            return false;
+        })
+    </script>
+    <!-- <script>
     function setprogress() {
         $.ajax({
             url: '/getcurrentprocesscount/',
@@ -238,11 +146,47 @@
     }
 </script> -->
 
-<script>
-    if ('{{error}}' != 'None') {
-        console.log('{{error}}')
-        $('#id_error_div').prop('hidden', false)
-        $('#id_error_row').html('{{error}}')
-    }
-</script>
-{% endblock endscript%}
+    <script>
+        if ('{{error}}' != 'None') {
+            console.log('----------------------------{{error}}')
+            $('#id_error_div').prop('hidden', false)
+            $('#id_error_row').html('----------------------------{{error}}')
+        }
+    </script>
+    <script>
+        $('#id_getcolumns').click(function () {
+            var data = new FormData($('#file-upload-form').get(0));
+            console.log(data)
+            for(i of data){
+                console.log(i)
+            }
+            $('#id_error_div').prop('hidden', true)
+            $('#id_error_row').html('')
+            $.ajax({
+                data: data,
+                type: $('#file-upload-form').attr('method'),
+                url: '/responseCsvHeader/',
+                cache: false,
+                processData: false,
+                contentType: false,
+                success: function (data) {
+                    console.log('start printing')
+                    // clearInterval(timer)
+
+                    // send alert if file not found or broken
+                    if (data['error_rows'] != undefined) {
+                        console.log('-----=======',data['error_rows'])
+                        $('#id_progress_parent').prop('hidden', true)
+                        console.log($('#id_progress_parent').prop('hidden'))
+                        $('#id_error_div').prop('hidden', false)
+                        $('#id_error_row').html(data['error_rows'])
+                    }
+                    console.log(data)
+                    console.log('--------',data['header_data'])
+                    var list = ''
+                    $('#id_csv_header').html(data)
+                }
+            })
+        })
+    </script>
+    {% endblock endscript%}

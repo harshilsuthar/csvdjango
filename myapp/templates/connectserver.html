@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block body %}
 <div class="d-flex justify-content-center">
-<form method='POST' class="w-25 ">
+<form method='POST' class="w-25 card p-4">
     {% csrf_token %}
     <center>
         {% for field in form %}

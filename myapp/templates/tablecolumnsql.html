@@ -1,24 +1,44 @@
 <!-- <center><h4>Table Schema Details</h4></center> -->
-<table class="table card" style="width: min-content;">
-    <tr>
-        <th>Field</th>
-        <th>Type</th>
-        <th>Null</th>
-        <th>Key</th>
-        <th>Default</th>
-        <th>Extra</th>
-    </tr>
+{% load custom_tag %}
+<div class="row mt-4">
+    <div class="col-7">
+        <h4 style="color: #28C76F;">Table schema compared with CSV</h4>
+        <table class="table card mt-3" style="width: 100%">
+            <tr>
+                <th>Field</th>
+                <th>CSV Header</th>
+                <th>Type</th>
+                <th>Null</th>
+                <th>Key</th>
+                <th>Default</th>
+                <th>Extra</th>
+            </tr>
 
-    {% for row in columns %}
-    <tr>
-        <td>{{row.0}}</td>
-        <td>{{row.1}}</td>
-        <td>{{row.2}}</td>
-        <td>{{row.3}}</td>
-        <td>{{row.4}}</td>
-        <td>{{row.5}}</td>
-    </tr>
-    
-    {% endfor %}
-</table>
+            {% for row in columns %}
+            <tr>
+                {% for data in row %}
+                    <td>{{ data }}</td>
+                    {% if forloop.counter == 1 %}
+                        {% if data in header_data %}
+                          <td style="color: green; font-weight: bold;">Matched</td>
+                        {% else %}
+                        <td style="color: red; font-weight: bold;">Not Found</td>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <div class="col-5 row" style="height: min-content;">
+        <h4 class="col-12" style="color: #28C76F;">Extra fields in CSV</h4>
+        {% for ls in columns|csv_checker:header_data %}
+            {% if ls != '' %}
+                <div class="col-4 mt-2 border">
+                    <h6 style="color: red;">{{ls}}</h6>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
 
+</div>
