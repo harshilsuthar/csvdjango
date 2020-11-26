@@ -26,8 +26,9 @@ from .forms import ConnectServerForm
 
 # forloop_counter = 0
 # total_counter = 0
-
-mysql_pool = ''
+# mysql_pool = ''
+mysql_pool = mysql.connector.pooling.MySQLConnectionPool(
+                    pool_name="mypool", pool_size=32, user='root', passwd='root', host='localhost', port=3306)
 postgres_pool = ''
 data_check_time = 0
 data_check_count = 0
@@ -85,42 +86,11 @@ class Thread(threading.Thread):
 @login_required
 def makeconnection(request):
     try:
+        global postgres_pool
         if request.session['database_type'] == 'mysql':
             conn = mysql_pool.get_connection()
         elif request.session['database_type'] == 'postgres':
-            try:
-                database = request.session['database']
-            except:
-                database = 'postgres'
-            global postgres_pool
-            if postgres_pool != '':
-                conn_postgres = postgres_pool.getconn()
-                cursor = conn_postgres.cursor()
-                cursor.execute("SELECT current_database();")
-                for data in cursor.fetchall():
-                    print('---------------------',data[0])
-                    if data[0] != request.session['database']:
-                        try:
-                            postgres_pool.closeall()
-                        except Exception as ex:
-                            print('inside make connection postgres')
-                            print(ex)
-                        finally:
-                            try:
-                                postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=request.session['username'],
-                                                                                password=request.session['password'],
-                                                                                host=request.session['host'],
-                                                                                port=request.session['port'],
-                                                                                database=database)
-                                conn = postgres_pool.getconn()
-                            except Exception as ex:
-                                print(ex)
-                    else:
-                        conn = postgres_pool.getconn()
-                
-                cursor.close()
-                conn_postgres.close()
-            
+            conn = postgres_pool.getconn()
         return conn
     except Exception as ex:
         print('inside makeconnection final exception')
@@ -225,6 +195,20 @@ def createModel(request):
                 cursor.close()
                 conn.close()
             elif request.session['database_type'] == 'postgres':
+                global postgres_pool
+                try:
+                    postgres_pool.closeall()
+                except Exception as ex:
+                    print(ex)
+                try:
+                    postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=request.session['username'],
+                                                                                    password=request.session['password'],
+                                                                                    host=request.session['host'],
+                                                                                    port=request.session['port'],
+                                                                                    database=database)
+                    conn = postgres_pool.getconn()
+                except Exception as ex:
+                    print(ex)
                 conn = makeconnection(request)
                 cursor = conn.cursor()
                 showtables = "SELECT * FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema';"
@@ -358,6 +342,8 @@ def listDatabaseView(request):
                 return redirect('myapp:ListDatabaseView')
     except Exception as ex:
         print(ex)
+        logout(request)
+        
 
 
 # getting form using ajax try to put data inside database but not commiting.
@@ -489,7 +475,7 @@ def threadManager():
 def csvThreadCreator(request, database, data, table, header, raw_header, user, commit, model_pk):
     try:
         error_rows = []
-        thread_count = 3
+        thread_count = 5
         start_time = time.time()
 
         subprocess_thread_list = []
@@ -643,80 +629,114 @@ def csvSplitter(user):
         print(ex)
         return None, None, None
 
+@csrf_exempt
+def columnMatcher(request):
+    if request.method == 'POST':
+        csvfile = request.FILES.get('csvfile')
+        table = request.POST.get('table')
+        database = request.POST.get('database')
+        print(csvfile, table, database)
+        csvfile_data = pandas.read_csv(csvfile)
+        header, raw_header, data = csvSplitter(csvfile_data)
+        column_list_of_table_query = """SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS 
+                                        WHERE TABLE_NAME = N'%s' and table_schema='%s'"""%(table, database)
+        table_columns_list = []
+        conn = makeconnection(request)
+        cursor = conn.cursor()
+        cursor.execute(column_list_of_table_query)
+        for column in cursor.fetchall():
+            column = column[0].strip()
+            table_columns_list.append(column)
+        raw_header = list(raw_header)
+        raw_header = [header.strip() for header in raw_header]
+        # print('--==--==',raw_header, table_columns_list)
+        cursor.close()
+        conn.close()
+        return render(request, 'column_matcher.html',{'raw_header':raw_header, 'table_columns_list':table_columns_list})
+    pass
+
+
+
+
+
+
+
+
+
+
+
+
 
 # table schema view
-@login_required
-def showTableColumns(request):
+# @login_required
+# def showTableColumns(request):
 
-    if request.method == 'GET':
-        try:
-            conn = makeconnection(request)
-            cursor = conn.cursor()
-            tablename = request.GET.get('tablename')
-            database = request.GET.get('database')
-            database_type = request.session['database_type']
-            if database_type == 'mysql':
-                select_query = "SHOW COLUMNS FROM %s;" % (tablename)
-                use_query = 'USE %s' % (database)
-                cursor.execute(use_query)
-            elif database_type == 'postgres':
-                select_query = "SELECT column_name,data_type  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s';" % (
-                    tablename)
-            cursor.execute(select_query)
-            column_list = []
-            for row in cursor.fetchall():
-                column_list.append(row)
-            cursor.close()
-            conn.close()
-            if database_type == 'mysql':
-                return render(request, 'tablecolumnsql.html', {'columns': column_list})
-            elif database_type == 'postgres':
-                return render(request, 'tablecolumnpostgres.html', {'columns': column_list})
-        except Exception as ex:
-            if database_type == 'mysql':
-                return render(request, 'tablecolumnsql.html', {'columns': ''})
-            elif database_type == 'postgres':
-                return render(request, 'tablecolumnpostgres.html', {'columns': ''})
-
-
-def responseCsvHeader(request):
-    if request.method == 'POST':
-        try:
-            conn = makeconnection(request)
-            cursor = conn.cursor()
-            tablename = request.POST.get('table')
-            database = request.POST.get('database')
-            # print(tablename, database)
-            database_type = request.session['database_type']
-            if database_type == 'mysql':
-                select_query = "SHOW COLUMNS FROM %s;" % (tablename)
-                use_query = 'USE %s' % (database)
-                cursor.execute(use_query)
-            elif database_type == 'postgres':
-                select_query = "SELECT column_name,data_type  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s';" % (
-                    tablename)
-            cursor.execute(select_query)
-            column_list = []
-            for row in cursor.fetchall():
-                column_list.append(row)
-            cursor.close()
-            conn.close()
-            csvfile = request.FILES.get('csvfile')
-            if csvfile == None:
-                raise Exception('No file is Selected!!')
-            user = pandas.read_csv(csvfile)
-            header, raw_header, data = csvSplitter(user)
-            raw_header =list(map(str.strip, raw_header))
-            # print(raw_header)
-            # return JsonResponse({'header_data':raw_header,'error_rows':''})
-            if database_type == 'mysql':
-                return render(request, 'tablecolumnsql.html', {'columns': column_list, 'header_data':raw_header, 'error_rows':'None'})
-            elif database_type == 'postgres':
-                return render(request, 'tablecolumnpostgres.html', {'columns': column_list, 'header_data':raw_header})
-        except Exception as ex:
-            print(ex)
-            return JsonResponse({'error_rows':str(ex)})
-#increase progressbar view
-# def getCurrentProcessCount(request):
 #     if request.method == 'GET':
-#         return JsonResponse({'current_counter': forloop_counter, 'total_counter': total_counter})
+#         try:
+#             conn = makeconnection(request)
+#             cursor = conn.cursor()
+#             tablename = request.GET.get('tablename')
+#             database = request.GET.get('database')
+#             database_type = request.session['database_type']
+#             if database_type == 'mysql':
+#                 select_query = "SHOW COLUMNS FROM %s;" % (tablename)
+#                 use_query = 'USE %s' % (database)
+#                 cursor.execute(use_query)
+#             elif database_type == 'postgres':
+#                 select_query = "SELECT column_name,data_type  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s';" % (
+#                     tablename)
+#             cursor.execute(select_query)
+#             column_list = []
+#             for row in cursor.fetchall():
+#                 column_list.append(row)
+#             cursor.close()
+#             conn.close()
+#             if database_type == 'mysql':
+#                 return render(request, 'tablecolumnsql.html', {'columns': column_list})
+#             elif database_type == 'postgres':
+#                 return render(request, 'tablecolumnpostgres.html', {'columns': column_list})
+#         except Exception as ex:
+#             if database_type == 'mysql':
+#                 return render(request, 'tablecolumnsql.html', {'columns': ''})
+#             elif database_type == 'postgres':
+#                 return render(request, 'tablecolumnpostgres.html', {'columns': ''})
+
+
+# def responseCsvHeader(request):
+#     if request.method == 'POST':
+#         try:
+#             conn = makeconnection(request)
+#             cursor = conn.cursor()
+#             tablename = request.POST.get('table')
+#             database = request.POST.get('database')
+#             # print(tablename, database)
+#             database_type = request.session['database_type']
+#             if database_type == 'mysql':
+#                 select_query = "SHOW COLUMNS FROM %s;" % (tablename)
+#                 use_query = 'USE %s' % (database)
+#                 cursor.execute(use_query)
+#             elif database_type == 'postgres':
+#                 select_query = "SELECT column_name,data_type  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s';" % (
+#                     tablename)
+#             cursor.execute(select_query)
+#             column_list = []
+#             for row in cursor.fetchall():
+#                 column_list.append(row)
+#             cursor.close()
+#             conn.close()
+#             csvfile = request.FILES.get('csvfile')
+#             if csvfile == None:
+#                 raise Exception('No file is Selected!!')
+#             user = pandas.read_csv(csvfile)
+#             header, raw_header, data = csvSplitter(user)
+#             raw_header =list(map(str.strip, raw_header))
+#             # print(raw_header)
+#             # return JsonResponse({'header_data':raw_header,'error_rows':''})
+#             if database_type == 'mysql':
+#                 return render(request, 'tablecolumnsql.html', {'columns': column_list, 'header_data':raw_header, 'error_rows':'None'})
+#             elif database_type == 'postgres':
+#                 return render(request, 'tablecolumnpostgres.html', {'columns': column_list, 'header_data':raw_header})
+#         except Exception as ex:
+#             print(ex)
+#             return JsonResponse({'error_rows':str(ex)})
+

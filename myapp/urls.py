@@ -10,8 +10,9 @@ urlpatterns = [
     path('connectserver/<error>', views.DatabaseConfigView.as_view(), name='ConnectServer'),
     path('listdatabase/', views.listDatabaseView,kwargs={}, name='ListDatabaseView'),
     path('createmodel/',views.createModel, name='CreateModel'),
-    path('showtablecolumns/',views.showTableColumns, name='ShowTableColumns'),
+    # path('showtablecolumns/',views.showTableColumns, name='ShowTableColumns'),
     path('csvcheck/', views.csvCheck, name='CsvCheck'),
-    path('responseCsvHeader/', views.responseCsvHeader, name='ResponseCsvHeader'),
+    path('columnMatcher/',views.columnMatcher, name='ColumnMatcher'),
+    # path('responseCsvHeader/', views.responseCsvHeader, name='ResponseCsvHeader'),
     # path('getcurrentprocesscount/',views.getCurrentProcessCount,name='GetCurrentProcessCount'),
 ] 

@@ -1,9 +1,10 @@
 <!-- <center><h4>Table Schema Details</h4></center> -->
 {% load custom_tag %}
 <div class="row mt-4">
-    <div class="col-7">
-        <h4 style="color: #28C76F;">Table schema compared with CSV</h4>
-        <table class="table card mt-3" style="width: 100%">
+    <div class="col-lg-7 col-md-12 col-sm-12 row mr-4   ">
+        <h4 class="col-12 mb-0" style="color: #28C76F;">Table schema compared with CSV</h4>
+        <table class="table border overflow-hidden col-12" style="width: 100%">
+            <thead>
             <tr>
                 <th>Field</th>
                 <th>CSV Header</th>
@@ -13,7 +14,8 @@
                 <th>Default</th>
                 <th>Extra</th>
             </tr>
-
+        </thead>
+        <tbody>
             {% for row in columns %}
             <tr>
                 {% for data in row %}
@@ -28,13 +30,14 @@
                 {% endfor %}
             </tr>
             {% endfor %}
+        </tbody>
         </table>
     </div>
-    <div class="col-5 row" style="height: min-content;">
+    <div class="col-lg-5 col-md-12 col-sm-12 row" style="height: min-content;">
         <h4 class="col-12" style="color: #28C76F;">Extra fields in CSV</h4>
         {% for ls in columns|csv_checker:header_data %}
             {% if ls != '' %}
-                <div class="col-4 mt-2 border">
+                <div class="col-4 border d-flex justify-content-center">
                     <h6 style="color: red;">{{ls}}</h6>
                 </div>
             {% endif %}

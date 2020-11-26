@@ -1,0 +1,56 @@
+<div class="row">
+    <div class="col-12 row ">
+    {% for header in raw_header %}
+    <div class="col-6">
+        <select class="csv_header" name="header{{ forloop.counter}}" id="id_header{{ forloop.counter}}">
+            {% for option in raw_header %}
+            <option value="{{option}}">{{option}}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endfor %}
+</div>
+    <div class="col-12 row mt-4">
+    {% for header in raw_header %}
+    <div class="col-6">
+        <select name="field{{ forloop.counter}}" id="id_field{{ forloop.counter}}">
+            {% for option in table_columns_list %}
+            <option value="{{option}}">{{option}}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endfor %}
+</div>
+</div>
+<script>
+    function findDuplicates(arr){
+  let sorted_arr = arr.slice().sort(); // You can define the comparing function here. 
+  // JS by default uses a crappy string compare.
+  // (we use slice to clone the array so the
+  // original array won't be modified)
+  let results = [];
+  for (let i = 0; i < sorted_arr.length - 1; i++) {
+    if (sorted_arr[i + 1] == sorted_arr[i]) {
+      results.push(sorted_arr[i]);
+    }
+  }
+  return results;
+}
+    $('.csv_header').change(function(){
+        var arr1 = []
+        $('.csv_header').each(function(){
+           
+       
+            console.log($(this).val())
+            arr1.push($(this).val())
+        })
+        
+        console.log(arr1)
+        var dups = findDuplicates(arr1)
+        for(duplicate of dups){
+            console.log('ok')
+            alert(duplicate)
+        }
+    })
+    
+</script>

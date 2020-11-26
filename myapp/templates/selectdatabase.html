@@ -54,139 +54,170 @@
 </div>
 
 
+{% endblock body %}
 
-
-
-
-
-
-    {% endblock body %}
-
-    {% block endscript%}
-    <!-- setting database list and table list -->
-    <script>
-        // setting database list and table list
-        loadtables = (list) => {
-            var url = '/createmodel/?name=' + list
-            $.ajax({
-                url: url,
-                success: function (data) {
-                    $('#tablelist').html(data)
-                    // get table column list after table list updated
-                }
-            })
-        }
-        $(document).ready(function () {
-            $('#database').change()
-        })
-        selecteddatabase = () => {
-            var database = $('#database').val()
-            loadtables(database)
-
-        }
-    </script>
-
-    <!-- getting form data on check csv button and checking for any error in the csv  -->
-    <script>
-        // getting form data on check csv button and checking for any error in the csv
-        $('#id_checkcsv').click(function () {
-            // getting form data
-            var data = new FormData($('#file-upload-form').get(0));
-            $.ajax({
-                data: data,
-                type: $('#file-upload-form').attr('method'),
-                url: '/csvcheck/',
-                cache: false,
-                processData: false,
-                contentType: false,
-                xhr: function () {
-                    var xhr = new window.XMLHttpRequest();
-                    $('#id_progress_parent').prop('hidden', false)
-                    xhr.upload.addEventListener("progress", function (evt) {
-
-                        if (evt.lengthComputable) {
-                            var percentComplete = evt.loaded / evt.total;
-                            percentComplete = parseInt(percentComplete * 100);
-                            $('#id_progressbar').css('width', percentComplete);
-
-                            if (percentComplete === 100) {
-                                $('#id_progress_parent').prop('hidden', true)
-                            }
-                        }
-                    }, false);
-
-                    return xhr;
-                },
-                success: function (data) {
-                    console.log('start printing')
-
-                    // clearInterval(timer)
-
-                    // send alert if file not found or broken
-                    if (data['error_rows'] != '') {
-                        $('#id_progress_parent').prop('hidden', true)
-                        console.log($('#id_progress_parent').prop('hidden'))
-                        $('#id_error_div').prop('hidden', false)
-                        $('#id_error_row').html(data['error_rows'])
-                    }
-                }
-            });
-            return false;
-        })
-    </script>
-    <!-- <script>
-    function setprogress() {
+{% block endscript%}
+<!-- setting database list and table list -->
+<script>
+    // setting database list and table list
+    loadtables = (list) => {
+        var url = '/createmodel/?name=' + list
         $.ajax({
-            url: '/getcurrentprocesscount/',
+            url: url,
             success: function (data) {
-                let completed = (data['current_counter'] / data['total_counter']) * 100
-                $('#id_progressbar').css('width', completed + '%')
+                $('#tablelist').html(data)
+                // get table column list after table list updated
             }
         })
     }
+    $(document).ready(function () {
+        $('#database').change()
+    })
+    selecteddatabase = () => {
+        var database = $('#database').val()
+        loadtables(database)
+
+    }
+</script>
+
+<!-- getting form data on check csv button and checking for any error in the csv  -->
+<script>
+    // getting form data on check csv button and checking for any error in the csv
+    $('#id_checkcsv').click(function () {
+        // getting form data
+        var data = new FormData($('#file-upload-form').get(0));
+        $.ajax({
+            data: data,
+            type: $('#file-upload-form').attr('method'),
+            url: '/csvcheck/',
+            cache: false,
+            processData: false,
+            contentType: false,
+            xhr: function () {
+                var xhr = new window.XMLHttpRequest();
+                $('#id_progress_parent').prop('hidden', false)
+                xhr.upload.addEventListener("progress", function (evt) {
+
+                    if (evt.lengthComputable) {
+                        var percentComplete = evt.loaded / evt.total;
+                        percentComplete = parseInt(percentComplete * 100);
+                        $('#id_progressbar').css('width', percentComplete);
+
+                        if (percentComplete === 100) {
+                            $('#id_progress_parent').prop('hidden', true)
+                        }
+                    }
+                }, false);
+
+                return xhr;
+            },
+            success: function (data) {
+                console.log('start printing')
+
+                // clearInterval(timer)
+
+                // send alert if file not found or broken
+                if (data['error_rows'] != '') {
+                    $('#id_progress_parent').prop('hidden', true)
+                    console.log($('#id_progress_parent').prop('hidden'))
+                    $('#id_error_div').prop('hidden', false)
+                    $('#id_error_row').html(data['error_rows'])
+                }
+            }
+        });
+        return false;
+    })
+</script>
+
+<script>
+    console.log("{% url 'myapp:ColumnMatcher' %}")
+    $('#id_getcolumns').click(function () {
+        var data = new FormData($('#file-upload-form').get(0));
+        $.ajax({
+            type: "POST",
+            url: "{% url 'myapp:ColumnMatcher' %}",
+            data: data,
+            cache: false,
+            processData: false,
+            contentType: false,
+            success: function (response) {
+                // console.log(response)
+                $('#id_column_table').html(response)
+            }
+        });
+    })
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- <script>
+function setprogress() {
+    $.ajax({
+        url: '/getcurrentprocesscount/',
+        success: function (data) {
+            let completed = (data['current_counter'] / data['total_counter']) * 100
+            $('#id_progressbar').css('width', completed + '%')
+        }
+    })
+}
 </script> -->
 
-    <script>
-        if ('{{error}}' != 'None') {
-            console.log('----------------------------{{error}}')
-            $('#id_error_div').prop('hidden', false)
-            $('#id_error_row').html('----------------------------{{error}}')
+<script>
+    if ('{{error}}' != 'None') {
+        console.log('----------------------------{{error}}')
+        $('#id_error_div').prop('hidden', false)
+        $('#id_error_row').html('{{error}}')
+    }
+</script>
+<!-- get column table -->
+<!-- <script>
+    $('#id_getcolumns').click(function () {
+        var data = new FormData($('#file-upload-form').get(0));
+        console.log(data)
+        for(i of data){
+            console.log(i)
         }
-    </script>
-    <script>
-        $('#id_getcolumns').click(function () {
-            var data = new FormData($('#file-upload-form').get(0));
-            console.log(data)
-            for(i of data){
-                console.log(i)
-            }
-            $('#id_error_div').prop('hidden', true)
-            $('#id_error_row').html('')
-            $.ajax({
-                data: data,
-                type: $('#file-upload-form').attr('method'),
-                url: '/responseCsvHeader/',
-                cache: false,
-                processData: false,
-                contentType: false,
-                success: function (data) {
-                    console.log('start printing')
-                    // clearInterval(timer)
+        $('#id_error_div').prop('hidden', true)
+        $('#id_error_row').html('')
+        $.ajax({
+            data: data,
+            type: $('#file-upload-form').attr('method'),
+            url: '/responseCsvHeader/',
+            cache: false,
+            processData: false,
+            contentType: false,
+            success: function (data) {
+                console.log('start printing')
+                // clearInterval(timer)
 
-                    // send alert if file not found or broken
-                    if (data['error_rows'] != undefined) {
-                        console.log('-----=======',data['error_rows'])
-                        $('#id_progress_parent').prop('hidden', true)
-                        console.log($('#id_progress_parent').prop('hidden'))
-                        $('#id_error_div').prop('hidden', false)
-                        $('#id_error_row').html(data['error_rows'])
-                    }
-                    console.log(data)
-                    console.log('--------',data['header_data'])
-                    var list = ''
-                    $('#id_csv_header').html(data)
+                // send alert if file not found or broken
+                if (data['error_rows'] != undefined) {
+                    console.log('-----=======',data['error_rows'])
+                    $('#id_progress_parent').prop('hidden', true)
+                    console.log($('#id_progress_parent').prop('hidden'))
+                    $('#id_error_div').prop('hidden', false)
+                    $('#id_error_row').html(data['error_rows'])
                 }
-            })
+                console.log(data)
+                console.log('--------',data['header_data'])
+                var list = ''
+                $('#id_csv_header').html(data)
+            }
         })
-    </script>
-    {% endblock endscript%}
+    })
+</script> -->
+
+
+{% endblock endscript%}
