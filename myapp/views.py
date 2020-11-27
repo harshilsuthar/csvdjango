@@ -20,6 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import logout
 
 from . import models
 from .forms import ConnectServerForm
@@ -27,8 +28,8 @@ from .forms import ConnectServerForm
 # forloop_counter = 0
 # total_counter = 0
 # mysql_pool = ''
-mysql_pool = mysql.connector.pooling.MySQLConnectionPool(
-                    pool_name="mypool", pool_size=32, user='root', passwd='root', host='localhost', port=3306)
+# mysql_pool = mysql.connector.pooling.MySQLConnectionPool(
+#                     pool_name="mypool", pool_size=32, user='root', passwd='root', host='localhost', port=3306)
 postgres_pool = ''
 data_check_time = 0
 data_check_count = 0
@@ -39,47 +40,7 @@ parallel_user_thread_dict = dict()
 is_thread_manager_running = False
 que = queue.Queue()
 #make thread returnable and terminable
-def _async_raise(tid, exctype):
-    """raises the exception, performs cleanup if needed"""
-    if not inspect.isclass(exctype):
-        raise TypeError("Only types can be raised (not instances)")
-    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-        tid, ctypes.py_object(exctype))
-    if res == 0:
-        raise ValueError("invalid thread id")
-    elif res != 1:
-        # """if it returns a number greater than one, you're in trouble,
-        # and you should call it again with exc=NULL to revert the effect"""
-        ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, 0)
-        raise SystemError("PyThreadState_SetAsyncExc failed")
 
-
-class Thread(threading.Thread):
-    def _get_my_tid(self):
-        """determines this (self's) thread id"""
-        if not self.is_alive():
-            raise threading.ThreadError("the thread is not active")
-
-        # do we have it cached?
-        if hasattr(self, "_thread_id"):
-            return self._thread_id
-
-        # no, look for it in the _active dict
-        for tid, tobj in threading._active.items():
-            if tobj is self:
-                self._thread_id = tid
-                return tid
-
-        raise AssertionError("could not determine the thread's id")
-
-    def raise_exc(self, exctype):
-        """raises the given exception type in the context of this thread"""
-        _async_raise(self._get_my_tid(), exctype)
-
-    def terminate(self):
-        """raises SystemExit in the context of the given thread, which should 
-        cause the thread to exit silently (unless caught)"""
-        self.raise_exc(SystemExit)
 
 
 # making connection pool to database
@@ -227,10 +188,10 @@ def createModel(request):
 
 # database list, tablelist, csvfile GET and POST method
 @login_required
+@csrf_exempt
 def listDatabaseView(request):
     try:
         # creating connection according to server
-
         if request.method == 'GET':
             databases = []
             try:
@@ -276,6 +237,7 @@ def listDatabaseView(request):
 
         if request.method == 'POST':
             try:
+                print('method callled')
                 global subprocess_thread_list
                 csvfile = request.FILES.get('csvfile')
                 table = request.POST.get('table')
@@ -284,20 +246,55 @@ def listDatabaseView(request):
                 database_type = request.session['database_type']
                 port = request.session['port']
                 host = request.session['host']
-                user = pandas.read_csv(csvfile)
-                csvfile.seek(0, 0)
+                table_list = request.POST.getlist('table_list[]')
+                header_list = request.POST.getlist('header_list[]')
+
+                # header and table_field validation starts
+                if len(header_list)-header_list.count('None') <= 0:
+                    raise FieldNotSet('please select at least one header')
+                if len(table_list)-table_list.count('None') <= 0:
+                    raise FieldNotSet('please select at least one table field')
+                for header,field in zip(header_list, table_list):
+                    if (header == 'None' and field != 'None') or (field == 'None' and header != 'None'):
+                        raise(FieldNotSet('some header and table fields are not matching'))
+                
+                table_list = list(filter(lambda a: a!='None', table_list))
+                header_list = list(filter(lambda a: a!='None', header_list))
+                # header and table_field validation ends
+                
+                
+                
+                if csvfile == None:
+                    raise Exception('No file is Uploaded!!')
+                try:
+                    csv_dataframe = pandas.read_csv(csvfile)[header_list]
+                except Exception as ex:
+                    print(ex)
+                    raise FieldNotSet('columns are not present in table')
+                # updated_csv = user[header_list]
                 if csvfile == None:
                     return JsonResponse({'error_rows': 'file not found or corrupt file!!'})
-                md5_hash = hashlib.md5()
-                md5_hash.update(csvfile.read())
+                
+                
+                # creating hash to check whether this request is already fulfiled or not.
+                csvfile.seek(0, 0)
+                data = csvfile.read()
+                data = data.decode('utf-8')
+                table_list_sorted = sorted(table_list)
+                header_list_sorted = sorted(header_list)
+                data += str(table_list_sorted)+ str(header_list)
+                data = bytes(data, 'utf-8')
+                md5_hash = hashlib.md5(data)
                 digest = md5_hash.hexdigest()
+
+
+                
                 error_model = models.CsvErrorFile.objects.filter(user=request.user, server_name=database_type,
                                                                  server_username=username, server_port=port, server_host=host,
                                                                  server_database=database, server_table=table, uploaded_file_hash=digest,
                                                                  commited=True).exclude(process_state='error')
                 if len(error_model) != 0:
-                    request.session['ListDatabaseViewError'] = 'request is already fulfiled, check history for error data in csvfile'
-                    return redirect('myapp:ListDatabaseView')
+                    return JsonResponse({'error_rows': 'request is already fulfilled, check history for error data file'})
                 else:
                     error_model = models.CsvErrorFile(user=request.user, server_name=database_type, server_username=username,
                                                       server_port=port, server_host=host, server_database=database, server_table=table,
@@ -308,7 +305,16 @@ def listDatabaseView(request):
 
                 # converting csv data for database entry
                 # seperating header from csv
-                header, raw_header, data = csvSplitter(user)
+                header, raw_header, data = csvSplitter(csv_dataframe)
+                raw_header = tuple(table_list)
+                header = str(raw_header)
+                if len(tuple(table_list)) == 1:
+                    headindex = header.rfind(',')
+                    header = header[:headindex]+''+header[headindex+1:]
+                    header = header.replace("'", "")
+                else:
+                    header = header.replace("'", "")
+
                 # setting global counter for thread
                 # global total_counter
                 global is_thread_manager_running
@@ -319,7 +325,7 @@ def listDatabaseView(request):
                 # creating csvchecksubprocess thread and append in master thread list
                 commit = True
                 t1 = threading.Thread(target=csvThreadCreator, args=(
-                    request, database, data, table, header, raw_header, user, commit, model_pk))
+                    request, database, data, table, header, raw_header, csv_dataframe, commit, model_pk))
                 if parallel_user_thread_dict.get(request.user.username) == None:
                     parallel_user_thread_dict[request.user.username] = [t1]
                 else:
@@ -333,21 +339,31 @@ def listDatabaseView(request):
                     t2.start()
                 print('csv check thread creation and handle time for starting background processing:',
                       time.time()-start_time)
-                request.session['ListDatabaseViewError'] = 'File Checking Under Process!!'
-                return redirect('myapp:ListDatabaseView')
-
+                return JsonResponse({'error_rows': 'File Checking Under Process!!'})
+            except FieldNotSet as fns:
+                print(str(fns))
+                return JsonResponse({'error_rows': str(fns)})
             except Exception as ex:
+                try:
+                    error_model = models.CsvErrorFile.objects.get(pk=model_pk)
+                    error_model.process_state = 'error'
+                    error_model.save()
+                except Exception as ex1:
+                    print(
+                        'error while updating model state to error inside csvThreadCreator')
+                    print(ex1)
                 print(ex)
-                request.session['ListDatabaseViewError'] = str(ex)
-                return redirect('myapp:ListDatabaseView')
+                return JsonResponse({'error_rows': str(ex)})
     except Exception as ex:
         print(ex)
         logout(request)
+        return redirect('myapp:ConnectServerRedirect')
         
 
 
 # getting form using ajax try to put data inside database but not commiting.
 @login_required
+@csrf_exempt
 def csvCheck(request):
     if request.method == 'POST':
         try:
@@ -359,20 +375,58 @@ def csvCheck(request):
             database_type = request.session['database_type']
             port = request.session['port']
             host = request.session['host']
+
+            # header and table field list and validator
+            table_list = request.POST.getlist('table_list[]')
+            header_list = request.POST.getlist('header_list[]')
+
+            # header and table_field validation starts
+            if len(header_list)-header_list.count('None') <= 0:
+                raise FieldNotSet('please select at least one header')
+            if len(table_list)-table_list.count('None') <= 0:
+                raise FieldNotSet('please select at least one table field')
+            for header,field in zip(header_list, table_list):
+                if (header == 'None' and field != 'None') or (field == 'None' and header != 'None'):
+                    raise(FieldNotSet('some header and table fields are not matching'))
+            
+            table_list = list(filter(lambda a: a!='None', table_list))
+            header_list = list(filter(lambda a: a!='None', header_list))
+             # header and table_field validation ends
+            
+            
+            
             if csvfile == None:
                 raise Exception('No file is Uploaded!!')
-            user = pandas.read_csv(csvfile)
-            csvfile.seek(0, 0)
+            try:
+                csv_dataframe = pandas.read_csv(csvfile)[header_list]
+            except Exception as ex:
+                print(ex)
+                raise FieldNotSet('columns are not present in table')
+            # updated_csv = user[header_list]
             if csvfile == None:
                 return JsonResponse({'error_rows': 'file not found or corrupt file!!'})
-            md5_hash = hashlib.md5()
-            md5_hash.update(csvfile.read())
+            
+            
+            # creating hash to check whether this request is already fulfiled or not.
+            csvfile.seek(0, 0)
+            data = csvfile.read()
+            data = data.decode('utf-8')
+            table_list_sorted = sorted(table_list)
+            header_list_sorted = sorted(header_list)
+            data += str(table_list_sorted)+ str(header_list)
+            data = bytes(data, 'utf-8')
+            md5_hash = hashlib.md5(data)
             digest = md5_hash.hexdigest()
+           
+
+            # making database entry for this request.
             error_model = models.CsvErrorFile.objects.filter(user=request.user, server_name=database_type, server_username=username,
                 server_port=port, server_host=host, server_database=database,
                 server_table=table, uploaded_file_hash=digest, commited=False).exclude(process_state='error')
+            # if request is already fulfilled then give message.
             if len(error_model) != 0:
                 return JsonResponse({'error_rows': 'request is already fulfilled, check history for error data file'})
+            # else create new request
             else:
                 error_model = models.CsvErrorFile(user=request.user, server_name=database_type,
                                                   server_username=username, server_port=port,
@@ -384,7 +438,15 @@ def csvCheck(request):
 
             # converting csv data for database entry
             # seperating header from csv
-            header, raw_header, data = csvSplitter(user)
+            header, raw_header, data = csvSplitter(csv_dataframe)
+            raw_header = tuple(table_list)
+            header = str(raw_header)
+            if len(tuple(table_list)) == 1:
+                headindex = header.rfind(',')
+                header = header[:headindex]+''+header[headindex+1:]
+                header = header.replace("'", "")
+            else:
+                header = header.replace("'", "")
 
             # setting global counter for thread
             # global total_counter
@@ -397,7 +459,7 @@ def csvCheck(request):
             # creating csvchecksubprocess thread and append in master thread list
             commit = False
             t1 = threading.Thread(target=csvThreadCreator, args=(
-                request, database, data, table, header, raw_header, user, commit, model_pk))
+                request, database, data, table, header, raw_header, csv_dataframe, commit, model_pk))
             if parallel_user_thread_dict.get(request.user.username) == None:
                 parallel_user_thread_dict[request.user.username] = [t1]
             else:
@@ -412,6 +474,9 @@ def csvCheck(request):
                   time.time()-start_time)
             return JsonResponse({'error_rows': 'File Checking Under Process!!'})
 
+        except FieldNotSet as fns:
+            print(str(fns))
+            return JsonResponse({'error_rows': str(fns)})
         except Exception as ex:
             try:
                 error_model = models.CsvErrorFile.objects.get(pk=model_pk)
@@ -539,6 +604,7 @@ def csvThreadCreator(request, database, data, table, header, raw_header, user, c
             error_model = models.CsvErrorFile.objects.get(pk=model_pk)
             error_model.error_file = File(csvfile)
             error_model.process_state = 'completed'
+            error_model.message = 'error file generated'
             error_model.save()
             csvfile.close()
         else:
@@ -632,28 +698,34 @@ def csvSplitter(user):
 @csrf_exempt
 def columnMatcher(request):
     if request.method == 'POST':
-        csvfile = request.FILES.get('csvfile')
-        table = request.POST.get('table')
-        database = request.POST.get('database')
-        print(csvfile, table, database)
-        csvfile_data = pandas.read_csv(csvfile)
-        header, raw_header, data = csvSplitter(csvfile_data)
-        column_list_of_table_query = """SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS 
-                                        WHERE TABLE_NAME = N'%s' and table_schema='%s'"""%(table, database)
-        table_columns_list = []
-        conn = makeconnection(request)
-        cursor = conn.cursor()
-        cursor.execute(column_list_of_table_query)
-        for column in cursor.fetchall():
-            column = column[0].strip()
-            table_columns_list.append(column)
-        raw_header = list(raw_header)
-        raw_header = [header.strip() for header in raw_header]
-        # print('--==--==',raw_header, table_columns_list)
-        cursor.close()
-        conn.close()
-        return render(request, 'column_matcher.html',{'raw_header':raw_header, 'table_columns_list':table_columns_list})
-    pass
+        try:
+            csvfile = request.FILES.get('csvfile')
+            table = request.POST.get('table')
+            database = request.POST.get('database')
+            # print('null')
+            if csvfile == None:
+                print('null')
+                raise Exception('please fill all the fields')
+            print(csvfile, table, database)
+            csvfile_data = pandas.read_csv(csvfile)
+            header, raw_header, data = csvSplitter(csvfile_data)
+            column_list_of_table_query = """SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS 
+                                            WHERE TABLE_NAME = N'%s' and table_schema='%s'"""%(table, database)
+            table_columns_list = []
+            conn = makeconnection(request)
+            cursor = conn.cursor()
+            cursor.execute(column_list_of_table_query)
+            for column in cursor.fetchall():
+                column = column[0].strip()
+                table_columns_list.append(column)
+            raw_header = list(raw_header)
+            raw_header = [header.strip() for header in raw_header]
+            # print('--==--==',raw_header, table_columns_list)
+            cursor.close()
+            conn.close()
+            return render(request, 'column_matcher.html',{'raw_header':raw_header, 'table_columns_list':table_columns_list})
+        except Exception as ex:
+            return JsonResponse({'error_rows': str(ex)})
 
 
 
@@ -739,4 +811,53 @@ def columnMatcher(request):
 #         except Exception as ex:
 #             print(ex)
 #             return JsonResponse({'error_rows':str(ex)})
+
+class FieldNotSet(Exception):
+    def __init__(self, message, payload=None):
+        self.message = message
+        self.payload = payload # you could add more args
+    def __str__(self):
+        return str(self.message)
+
+def _async_raise(tid, exctype):
+    """raises the exception, performs cleanup if needed"""
+    if not inspect.isclass(exctype):
+        raise TypeError("Only types can be raised (not instances)")
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        tid, ctypes.py_object(exctype))
+    if res == 0:
+        raise ValueError("invalid thread id")
+    elif res != 1:
+        # """if it returns a number greater than one, you're in trouble,
+        # and you should call it again with exc=NULL to revert the effect"""
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, 0)
+        raise SystemError("PyThreadState_SetAsyncExc failed")
+
+
+class Thread(threading.Thread):
+    def _get_my_tid(self):
+        """determines this (self's) thread id"""
+        if not self.is_alive():
+            raise threading.ThreadError("the thread is not active")
+
+        # do we have it cached?
+        if hasattr(self, "_thread_id"):
+            return self._thread_id
+
+        # no, look for it in the _active dict
+        for tid, tobj in threading._active.items():
+            if tobj is self:
+                self._thread_id = tid
+                return tid
+
+        raise AssertionError("could not determine the thread's id")
+
+    def raise_exc(self, exctype):
+        """raises the given exception type in the context of this thread"""
+        _async_raise(self._get_my_tid(), exctype)
+
+    def terminate(self):
+        """raises SystemExit in the context of the given thread, which should 
+        cause the thread to exit silently (unless caught)"""
+        self.raise_exc(SystemExit)
 

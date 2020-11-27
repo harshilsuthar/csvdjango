@@ -8,7 +8,7 @@
 <form method="post" class="mt-4 card" enctype="multipart/form-data" id='file-upload-form'>
     {% csrf_token %}
 <div class="row mt-2 ml-2 mr-2">
-    <div class="form-group col-3">
+    <div class="form-group col-xl-3 col-lg-3 col-md-6 col-sm-12 ">
         <label>Select Database</label>
         <select name='database' class="form-control" onchange="selecteddatabase()" id='database' required>
             {% for list in databases %}
@@ -16,23 +16,26 @@
             {% endfor %}
         </select>
     </div>
-    <div class="form-group col-3">
+    <div class="form-group col-xl-3 col-lg-3 col-md-6 col-sm-12">
         <label>Select Table</label>
         <div id='tablelist'></div>
         
     </div>
-    <div class="form-group col-3">
+    <div class="form-group col-xl-3 col-lg-3 col-md-6 col-sm-12">
         <label for='name'>Upload File:</label>
         <input type='file' class="form-control" accept=".csv" name='csvfile' id='csvfileinput' required>
         
     </div>
-    <div class="col-3 form-group row justify-content-around">
-        <button id='id_getcolumns' class="btn btn-success mt-1 col-md-11" type="button">Compare CSV</button>
-        <button id='id_checkcsv' class="btn btn-success mt-1 col-md-5" type="button">Validate</button>
-        <input type="submit" value="Commit" class="btn btn-success mt-1 col-md-5"/>
+    <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12 form-group m-auto d-flex justify-content-center">
+        <button id='id_checkcsv' class="btn btn-success m-auto" style="width: max-content;" type="button">Validate</button>
+        <button id='id_commit' class="btn btn-success m-auto" style="width: max-content;" type="button">Commit</button>
     </div>
 </div>
 </form>
+
+
+<div id='id_column_table' style="margin-top: 2%;"></div>
+
 <div hidden='true' id='id_error_div' style="margin-top: 2%;">
     <center>
         <h3 class="alert alert-warning" id='id_error_row'></h3>
@@ -40,9 +43,6 @@
     <table class="table" id='error_table'>
     </table>
 </div>
-
-<div id='id_column_table' style="margin-top: 2%;"></div>
-<div id='id_csv_header' style="margin-top: 2%;"></div>
 
 <div hidden="true" id='id_progress_parent'>
     <h3 class='alert alert-warning'>Do Not Refresh While Checking For Errors In The File</h3>
@@ -82,14 +82,41 @@
 
 <!-- getting form data on check csv button and checking for any error in the csv  -->
 <script>
-    // getting form data on check csv button and checking for any error in the csv
-    $('#id_checkcsv').click(function () {
+    function get_fields_data(){
+        var header_list = []
+        var table_list = []
+        $('.csv_header').each(function(){
+            header_list.push($(this).val())
+        })
+        $('.table_field').each(function(){
+            table_list.push($(this).val())
+        })
         // getting form data
         var data = new FormData($('#file-upload-form').get(0));
+        for (var i = 0; i < table_list.length; i++) {
+            data.append('table_list[]', table_list[i])
+        }
+        for (var i = 0; i < header_list.length; i++) {
+            data.append('header_list[]', header_list[i])
+        }
+        return data
+    }
+    // getting form data on check csv button and checking for any error in the csv
+    $('#id_checkcsv').click(function () {
+        var url = "{% url 'myapp:CsvCheck' %}"
+        formPost(url)
+    })
+    $('#id_commit').click(function () {
+        console.log('ok')
+        var url = "{% url 'myapp:ListDatabaseView' %}"
+        formPost(url)
+    })
+    function formPost(url){
+        var data = get_fields_data()
         $.ajax({
             data: data,
             type: $('#file-upload-form').attr('method'),
-            url: '/csvcheck/',
+            url: url,
             cache: false,
             processData: false,
             contentType: false,
@@ -126,12 +153,15 @@
             }
         });
         return false;
-    })
+    
+    }
+        
 </script>
 
 <script>
     console.log("{% url 'myapp:ColumnMatcher' %}")
-    $('#id_getcolumns').click(function () {
+    function get_field_list() {
+        console.log('okok')
         var data = new FormData($('#file-upload-form').get(0));
         $.ajax({
             type: "POST",
@@ -140,15 +170,46 @@
             cache: false,
             processData: false,
             contentType: false,
-            success: function (response) {
+            success: function (data) {
+                if (data['error_rows']){
+                    console.log(data['error_rows'])
+                    $('#id_error_div').prop('hidden', false)
+                    $('#id_error_row').html(data['error_rows'])
+                }
+                else{
+                    $('#id_error_div').prop('hidden', true)
+                    $('#id_column_table').html(data)
+                }
                 // console.log(response)
-                $('#id_column_table').html(response)
+                
             }
         });
+    }
+
+    $('#database').change(function(){
+        if ($('#csvfileinput').val()) {
+            get_field_list()
+        }
+    })
+    $('#csvfileinput').change(function(){
+        if ($('#csvfileinput').val()) {
+            get_field_list()
+        }
     })
 </script>
 
+<script>
+    if ('{{error}}' != 'None') {
+        console.log('----------------------------{{error}}')
+        $('#id_error_div').prop('hidden', false)
+        $('#id_error_row').html('{{error}}')
+    }
+</script>
 
+<script>
+    $('#id_checkcsv').prop('hidden',true)
+    $('#id_commit').prop('hidden',true)
+</script>
 
 
 
@@ -174,13 +235,7 @@ function setprogress() {
 }
 </script> -->
 
-<script>
-    if ('{{error}}' != 'None') {
-        console.log('----------------------------{{error}}')
-        $('#id_error_div').prop('hidden', false)
-        $('#id_error_row').html('{{error}}')
-    }
-</script>
+
 <!-- get column table -->
 <!-- <script>
     $('#id_getcolumns').click(function () {

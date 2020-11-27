@@ -5,6 +5,8 @@
 </select>
 <script>
     $('#id_table').change(function(){
-        console.log($('#id_table').val())
-    }).change()
+        if ($('#csvfileinput').val()) {
+            get_field_list()
+        }
+    })
 </script>

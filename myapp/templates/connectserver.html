@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block body %}
-<div class="d-flex justify-content-center">
-<form method='POST' class="w-25 card p-4">
+<div class="d-flex justify-content-center mt-4">
+<form method='POST' class="card p-4" style="width: 300px;">
     {% csrf_token %}
     <center>
         {% for field in form %}
@@ -12,7 +12,7 @@
         {% endfor %}
         <center><input type="submit" value="Submit" class="btn btn-success" /></center>
         {% if error %}
-            {{error}}
+            <h4 class="mt-3" style="color: red;">{{error}}</h4>
         {% endif %}
     </center>
 
