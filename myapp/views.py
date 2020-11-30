@@ -561,7 +561,7 @@ def csvThreadCreator(request, database, data, table, header, raw_header, user, c
             error_model = models.CsvErrorFile.objects.get(pk=model_pk)
             error_model.error_file = File(csvfile)
             error_model.process_state = 'completed'
-            error_model.message = 'Errro File Generated'
+            error_model.message = 'Error File Generated'
             error_model.save()
             csvfile.close()
         else:

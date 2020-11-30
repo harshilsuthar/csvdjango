@@ -13,6 +13,7 @@ class ServerSelectTest(TestCase):
         self.assertEqual(response.status_code,302)
 
     def testGetServerForm(self):
+        self.c.login(username='root', password='root')
         response = self.c.get('/connectserver/')
         self.assertEqual(response.status_code,200)
     
@@ -33,6 +34,7 @@ class ServerSelectTest(TestCase):
         self.assertEqual(response.status_code,302)
     
     def testGetDatabaseList(self):
+        self.c.login(username='root', password='root')
         self.c.post('/connectserver/',{'database_type':'mysql', 'username':'root', 'password':'root', 'host':'localhost', 'port':3306})
         response = self.c.get('/listdatabase/')
         self.assertEqual(response.status_code,200)

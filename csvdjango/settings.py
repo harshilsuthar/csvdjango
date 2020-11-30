@@ -74,12 +74,6 @@ TEMPLATES = [
         },
     },
 ]
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-#         'LOCATION': '127.0.0.1:11211',
-#     }
-# }
 
 WSGI_APPLICATION = 'csvdjango.wsgi.application'
 
@@ -153,7 +147,7 @@ LOGOUT_URL = 'nevigate:Logout'
 # SECURE_HSTS_SECONDS = False
 # SECURE_HSTS_PRELOAD = False
 # SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-# SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-# SESSION_COOKIE_AGE = 5 * 60 #
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_AGE = 5*60
 
 
