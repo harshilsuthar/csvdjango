@@ -57,6 +57,7 @@
 {% endblock body %}
 
 {% block endscript%}
+
 <!-- setting database list and table list -->
 <script>
     // post the selected database, table and csvfile to column matcher
@@ -102,16 +103,19 @@
             }
         })
     }
+    // when document get ready change database
     $(document).ready(function () {
         $('#database').change()
     })
+    // after changing database load tables with loadtables ajax function
     selecteddatabase = () => {
         var database = $('#database').val()
         loadtables(database)
     }
 </script>
 
-<!-- getting form data on check csv button and checking for any error in the csv  -->
+
+<!-- getting form data and matched column data to checkcsv and commit function  -->
 <script>
     // send matched columns data to checkcsv or commit button.
     function get_fields_data(){
@@ -190,6 +194,8 @@
         
 </script>
 
+
+<!-- get columns and selection from column matcher -->
 <script>
     
    
@@ -206,6 +212,8 @@
     
 </script>
 
+
+<!-- print if any error send by the function -->
 <script>
     if ('{{error}}' != 'None') {
         console.log('----------------------------{{error}}')
@@ -214,73 +222,11 @@
     }
 </script>
 
+
+<!-- initially hide validate and commit button -->
 <script>
     $('#id_checkcsv').prop('hidden',true)
     $('#id_commit').prop('hidden',true)
 </script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-<!-- <script>
-function setprogress() {
-    $.ajax({
-        url: '/getcurrentprocesscount/',
-        success: function (data) {
-            let completed = (data['current_counter'] / data['total_counter']) * 100
-            $('#id_progressbar').css('width', completed + '%')
-        }
-    })
-}
-</script> -->
-
-
-<!-- get column table -->
-<!-- <script>
-    $('#id_getcolumns').click(function () {
-        var data = new FormData($('#file-upload-form').get(0));
-        console.log(data)
-        for(i of data){
-            console.log(i)
-        }
-        $('#id_error_div').prop('hidden', true)
-        $('#id_error_row').html('')
-        $.ajax({
-            data: data,
-            type: $('#file-upload-form').attr('method'),
-            url: '/responseCsvHeader/',
-            cache: false,
-            processData: false,
-            contentType: false,
-            success: function (data) {
-                console.log('start printing')
-                // clearInterval(timer)
-
-                // send alert if file not found or broken
-                if (data['error_rows'] != undefined) {
-                    console.log('-----=======',data['error_rows'])
-                    $('#id_progress_parent').prop('hidden', true)
-                    console.log($('#id_progress_parent').prop('hidden'))
-                    $('#id_error_div').prop('hidden', false)
-                    $('#id_error_row').html(data['error_rows'])
-                }
-                console.log(data)
-                console.log('--------',data['header_data'])
-                var list = ''
-                $('#id_csv_header').html(data)
-            }
-        })
-    })
-</script> -->
-
 
 {% endblock endscript%}

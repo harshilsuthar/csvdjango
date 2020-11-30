@@ -14,13 +14,10 @@
     <div class="col-12">
         <h3 style="color: #28C76F;">Match CSV with Table</h3>
     </div>
-    <!-- <div class="col-12 d-flex justify-content-end m-2">
-        <button id='id_checkcsv' class="btn btn-success mr-4" type="button">Validate</button>
-        <button id='id_commit' class="btn btn-success" type="button">Commit</button>
-    </div> -->
     <div class="table-wrapper-scroll-y my-custom-scrollbar col-12">
         <table class="table border" style="max-width: max-content;">
             <tr>
+                <td><h6>Select CSV Header</h6></td>
                 {% for header in raw_header %}
                 <td style="width: fit-content;">
                     <select class="csv_header form-control" style="width: 150px;" name="header{{ forloop.counter}}" id="id_header{{ forloop.counter}}">
@@ -33,6 +30,7 @@
                 {% endfor %}
             </tr>
             <tr>
+                <td><h6>Select Table Field</h6></td>
                 {% for header in raw_header %}
                 <td style="width: fit-content;">
                     <select class="table_field form-control" style="width: 150px;" name="field{{ forloop.counter}}" id="id_field{{ forloop.counter}}">
@@ -47,6 +45,8 @@
         </table>
     </div>
 </div>
+
+<!-- hide option from selection if option is selected in other selection -->
 <script>
     $(window).ready(function () {
         $('.csv_header').change(function () {
@@ -63,7 +63,6 @@
                 if(value != 'None'){
                     selectedValues.push(value);
                 }
-                
             });
             console.log(selectedValues)
 
