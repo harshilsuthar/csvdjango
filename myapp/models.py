@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
-
+from django.conf import settings
+import os
 class CsvErrorFile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     server_name = models.CharField(max_length=20,choices=(('mysql','MySQL'),('postgres','PostgreSQL')),blank=True)
@@ -17,3 +18,12 @@ class CsvErrorFile(models.Model):
     commited = models.BooleanField(default=False, blank=True)
     upload_time = models.DateTimeField(auto_now_add=True)
     finish_time = models.DateTimeField(auto_now=True)
+
+    def delete(self, *args, **kwargs):
+        try:
+            os.remove(os.path.join(settings.MEDIA_ROOT, self.uploaded_file.name))
+            os.remove(os.path.join(settings.MEDIA_ROOT, self.error_file.name))
+        except Exception as ex:
+            print(ex)
+        finally:
+            super().delete(*args, **kwargs)

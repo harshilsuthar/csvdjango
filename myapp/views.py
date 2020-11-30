@@ -11,13 +11,11 @@ import pandas
 import psycopg2
 import psycopg2.pool
 from django.contrib.auth.models import User
-from django.core.cache import cache
 from django.core.files import File
 from django.http import JsonResponse
-from django.shortcuts import HttpResponse, redirect, render, reverse
+from django.shortcuts import redirect, render, reverse
 from django.views import generic
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import logout
@@ -25,12 +23,10 @@ from django.contrib.auth import logout
 from . import models
 from .forms import ConnectServerForm
 
-# forloop_counter = 0
-# total_counter = 0
-# mysql_pool = ''
 # mysql_pool = mysql.connector.pooling.MySQLConnectionPool(
 #                     pool_name="mypool", pool_size=32, user='root', passwd='root', host='localhost', port=3306)
 postgres_pool = ''
+mysql_pool = ''
 data_check_time = 0
 data_check_count = 0
 
@@ -40,7 +36,6 @@ parallel_user_thread_dict = dict()
 is_thread_manager_running = False
 que = queue.Queue()
 #make thread returnable and terminable
-
 
 
 # making connection pool to database
@@ -61,11 +56,10 @@ def makeconnection(request):
 
 # server select view
 
-class DatabaseConfigView(LoginRequiredMixin,generic.FormView):
+class DatabaseConfigView(LoginRequiredMixin, generic.FormView):
     form_class = ConnectServerForm
     template_name = 'connectserver.html'
     success_url = '/'
-   
 
     def get_context_data(self, **kwargs):
         try:
@@ -96,10 +90,10 @@ class DatabaseConfigView(LoginRequiredMixin,generic.FormView):
             self.request.session['password'] = password
             if database_type == 'postgres':
                 postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=username,
-                                                                    password=password,
-                                                                    host=host,
-                                                                    port=port,
-                                                                    database="postgres")
+                                                                     password=password,
+                                                                     host=host,
+                                                                     port=port,
+                                                                     database="postgres")
             elif database_type == 'mysql':
                 mysql_pool = mysql.connector.pooling.MySQLConnectionPool(
                     pool_name="mypool", pool_size=32, user=username, passwd=password, host=host, port=port)
@@ -163,10 +157,10 @@ def createModel(request):
                     print(ex)
                 try:
                     postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=request.session['username'],
-                                                                                    password=request.session['password'],
-                                                                                    host=request.session['host'],
-                                                                                    port=request.session['port'],
-                                                                                    database=database)
+                                                                         password=request.session['password'],
+                                                                         host=request.session['host'],
+                                                                         port=request.session['port'],
+                                                                         database=database)
                     conn = postgres_pool.getconn()
                 except Exception as ex:
                     print(ex)
@@ -222,18 +216,11 @@ def listDatabaseView(request):
                 cursor.execute('SHOW DATABASES')
             for database in cursor.fetchall():
                 databases.append(database[0])
-            request.session['userdatabase'] = databases
             cursor.close()
             conn.close()
             # rendering database list
             error = None
-            try:
-                error = request.session['ListDatabaseViewError']
-                del request.session['ListDatabaseViewError']
-            except Exception as ex:
-                print(ex)
-            finally:
-                return render(request, 'selectdatabase.html', {'databases': databases, 'error': error})
+            return render(request, 'selectdatabase.html', {'databases': databases, 'error': error})
 
         if request.method == 'POST':
             try:
@@ -254,16 +241,15 @@ def listDatabaseView(request):
                     raise FieldNotSet('please select at least one header')
                 if len(table_list)-table_list.count('None') <= 0:
                     raise FieldNotSet('please select at least one table field')
-                for header,field in zip(header_list, table_list):
+                for header, field in zip(header_list, table_list):
                     if (header == 'None' and field != 'None') or (field == 'None' and header != 'None'):
-                        raise(FieldNotSet('some header and table fields are not matching'))
-                
-                table_list = list(filter(lambda a: a!='None', table_list))
-                header_list = list(filter(lambda a: a!='None', header_list))
+                        raise(FieldNotSet(
+                            'some header and table fields are not matching'))
+
+                table_list = list(filter(lambda a: a != 'None', table_list))
+                header_list = list(filter(lambda a: a != 'None', header_list))
                 # header and table_field validation ends
-                
-                
-                
+
                 if csvfile == None:
                     raise Exception('No file is Uploaded!!')
                 try:
@@ -271,24 +257,20 @@ def listDatabaseView(request):
                 except Exception as ex:
                     print(ex)
                     raise FieldNotSet('columns are not present in table')
-                # updated_csv = user[header_list]
                 if csvfile == None:
                     return JsonResponse({'error_rows': 'file not found or corrupt file!!'})
-                
-                
+
                 # creating hash to check whether this request is already fulfiled or not.
                 csvfile.seek(0, 0)
                 data = csvfile.read()
                 data = data.decode('utf-8')
                 table_list_sorted = sorted(table_list)
                 header_list_sorted = sorted(header_list)
-                data += str(table_list_sorted)+ str(header_list)
+                data += str(table_list_sorted) + str(header_list)
                 data = bytes(data, 'utf-8')
                 md5_hash = hashlib.md5(data)
                 digest = md5_hash.hexdigest()
 
-
-                
                 error_model = models.CsvErrorFile.objects.filter(user=request.user, server_name=database_type,
                                                                  server_username=username, server_port=port, server_host=host,
                                                                  server_database=database, server_table=table, uploaded_file_hash=digest,
@@ -316,10 +298,7 @@ def listDatabaseView(request):
                     header = header.replace("'", "")
 
                 # setting global counter for thread
-                # global total_counter
                 global is_thread_manager_running
-                # total_counter = len(data1)
-                # print('totalcounter---------', total_counter)
                 start_time = time.time()
 
                 # creating csvchecksubprocess thread and append in master thread list
@@ -329,7 +308,8 @@ def listDatabaseView(request):
                 if parallel_user_thread_dict.get(request.user.username) == None:
                     parallel_user_thread_dict[request.user.username] = [t1]
                 else:
-                    parallel_user_thread_dict[request.user.username].insert(0, t1)
+                    parallel_user_thread_dict[request.user.username].insert(
+                        0, t1)
                 # if thread manager is shutdown then turn it on.
                 if is_thread_manager_running == False:
                     is_thread_manager_running = True
@@ -339,7 +319,7 @@ def listDatabaseView(request):
                     t2.start()
                 print('csv check thread creation and handle time for starting background processing:',
                       time.time()-start_time)
-                return JsonResponse({'error_rows': 'File Checking Under Process!!'})
+                return JsonResponse({'error_rows': 'Go to logs for more information'})
             except FieldNotSet as fns:
                 print(str(fns))
                 return JsonResponse({'error_rows': str(fns)})
@@ -358,7 +338,6 @@ def listDatabaseView(request):
         print(ex)
         logout(request)
         return redirect('myapp:ConnectServerRedirect')
-        
 
 
 # getting form using ajax try to put data inside database but not commiting.
@@ -385,16 +364,15 @@ def csvCheck(request):
                 raise FieldNotSet('please select at least one header')
             if len(table_list)-table_list.count('None') <= 0:
                 raise FieldNotSet('please select at least one table field')
-            for header,field in zip(header_list, table_list):
+            for header, field in zip(header_list, table_list):
                 if (header == 'None' and field != 'None') or (field == 'None' and header != 'None'):
-                    raise(FieldNotSet('some header and table fields are not matching'))
-            
-            table_list = list(filter(lambda a: a!='None', table_list))
-            header_list = list(filter(lambda a: a!='None', header_list))
-             # header and table_field validation ends
-            
-            
-            
+                    raise(FieldNotSet(
+                        'some header and table fields are not matching'))
+
+            table_list = list(filter(lambda a: a != 'None', table_list))
+            header_list = list(filter(lambda a: a != 'None', header_list))
+            # header and table_field validation ends
+
             if csvfile == None:
                 raise Exception('No file is Uploaded!!')
             try:
@@ -402,27 +380,24 @@ def csvCheck(request):
             except Exception as ex:
                 print(ex)
                 raise FieldNotSet('columns are not present in table')
-            # updated_csv = user[header_list]
             if csvfile == None:
                 return JsonResponse({'error_rows': 'file not found or corrupt file!!'})
-            
-            
+
             # creating hash to check whether this request is already fulfiled or not.
             csvfile.seek(0, 0)
             data = csvfile.read()
             data = data.decode('utf-8')
             table_list_sorted = sorted(table_list)
             header_list_sorted = sorted(header_list)
-            data += str(table_list_sorted)+ str(header_list)
+            data += str(table_list_sorted) + str(header_list)
             data = bytes(data, 'utf-8')
             md5_hash = hashlib.md5(data)
             digest = md5_hash.hexdigest()
-           
 
             # making database entry for this request.
             error_model = models.CsvErrorFile.objects.filter(user=request.user, server_name=database_type, server_username=username,
-                server_port=port, server_host=host, server_database=database,
-                server_table=table, uploaded_file_hash=digest, commited=False).exclude(process_state='error')
+                                                             server_port=port, server_host=host, server_database=database,
+                                                             server_table=table, uploaded_file_hash=digest, commited=False).exclude(process_state='error')
             # if request is already fulfilled then give message.
             if len(error_model) != 0:
                 return JsonResponse({'error_rows': 'request is already fulfilled, check history for error data file'})
@@ -452,8 +427,6 @@ def csvCheck(request):
             # global total_counter
             global is_thread_manager_running
             global parallel_user_thread_dict
-            # total_counter = len(data1)
-            # print('totalcounter---------', total_counter)
             start_time = time.time()
 
             # creating csvchecksubprocess thread and append in master thread list
@@ -472,7 +445,7 @@ def csvCheck(request):
                 t2.start()
             print('csv check thread creation and handle time for starting background processing:',
                   time.time()-start_time)
-            return JsonResponse({'error_rows': 'File Checking Under Process!!'})
+            return JsonResponse({'error_rows': 'Go to logs for more information'})
 
         except FieldNotSet as fns:
             print(str(fns))
@@ -501,9 +474,9 @@ def threadManager():
 
         start_time = time.time()
         global parallel_user_thread_dict
-        while not all(x==[] for x in parallel_user_thread_dict.values()):
-            for k,v in parallel_user_thread_dict.items():
-                if len(v)>0:
+        while not all(x == [] for x in parallel_user_thread_dict.values()):
+            for k, v in parallel_user_thread_dict.items():
+                if len(v) > 0:
                     if v[0].is_alive():
                         time.sleep(0.001)
                     elif v[0]._is_stopped:
@@ -515,21 +488,6 @@ def threadManager():
             time.sleep(1)
         is_thread_manager_running = False
         print('all task completes, thread manager is going to sleep=============')
-        # print(time.time()-start_time)
-        # while True:
-        #     for thread in master_thread_list:
-        #         # get thread from the list and start and wait for its execution
-        #         thread.start()
-        #         thread.join()
-        #         master_thread_list.remove(thread)
-        #         time.sleep(0.1)
-        #     if len(master_thread_list) == 0:
-        #         is_thread_manager_running = False
-        #         print('stopping master thread manager')
-        #         print('total master thread wakeup time is:',
-        #               time.time()-start_time)
-        #         print(data_check_time/data_check_count)
-        #         break
     except Exception as ex:
         print('exception in thread manager -----------------------')
         print(ex)
@@ -546,7 +504,8 @@ def csvThreadCreator(request, database, data, table, header, raw_header, user, c
         subprocess_thread_list = []
         # creating multiple threads for checking csv
         if request.session['database_type'] == 'mysql':
-            check_columns = "SELECT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA`= '%s' AND `TABLE_NAME`= '%s';"%(database,table)
+            check_columns = "SELECT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA`= '%s' AND `TABLE_NAME`= '%s';" % (
+                database, table)
         elif request.session['database_type'] == 'postgres':
             check_columns = "SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s';" % (
                 table)
@@ -599,12 +558,10 @@ def csvThreadCreator(request, database, data, table, header, raw_header, user, c
                 res_list, columns=raw_header).to_csv(index=False))
             print('file written!!!!!!!!')
             csvfile.seek(0, 0)
-
-            # with open(file, 'r') as csvfile:
             error_model = models.CsvErrorFile.objects.get(pk=model_pk)
             error_model.error_file = File(csvfile)
             error_model.process_state = 'completed'
-            error_model.message = 'error file generated'
+            error_model.message = 'Errro File Generated'
             error_model.save()
             csvfile.close()
         else:
@@ -637,13 +594,10 @@ def csvThread(request, database, data, table, header, startvalue, jumpvalue, com
         if database_type == 'mysql':
             databasequery = 'USE %s' % (database)
             cursor.execute(databasequery)
-        
-        
-        # global forloop_counter
+
         # checking if error occur while try to adding data into table, if error occured add into list
         for row_count, row in enumerate(data):
             try:
-                # forloop_counter += 1
                 insertquery = "INSERT INTO %s %s VALUES %s;" % (
                     table, header, row)
                 cursor.execute(insertquery)
@@ -668,6 +622,8 @@ def csvThread(request, database, data, table, header, startvalue, jumpvalue, com
 # thread management ends here
 
 # it seperates header, data and raw_header from csv file data.
+
+
 def csvSplitter(user):
     try:
         data = []
@@ -695,6 +651,7 @@ def csvSplitter(user):
         print(ex)
         return None, None, None
 
+
 @csrf_exempt
 def columnMatcher(request):
     if request.method == 'POST':
@@ -702,20 +659,39 @@ def columnMatcher(request):
             csvfile = request.FILES.get('csvfile')
             table = request.POST.get('table')
             database = request.POST.get('database')
-            # print('null')
             if csvfile == None:
                 print('null')
                 raise Exception('please fill all the fields')
             print(csvfile, table, database)
             csvfile_data = pandas.read_csv(csvfile)
             header, raw_header, data = csvSplitter(csvfile_data)
-            column_list_of_table_query = """SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS 
-                                            WHERE TABLE_NAME = N'%s' and table_schema='%s'"""%(table, database)
+            if request.session['database_type'] == 'mysql':
+                column_list_of_table_query = """SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS 
+                                            WHERE TABLE_NAME = '%s' and table_schema='%s'""" % (table, database)
+            elif request.session['database_type'] == 'postgres':
+                global postgres_pool
+                try:
+                    postgres_pool.closeall()
+                except Exception as ex:
+                    print(ex)
+                try:
+                    postgres_pool = psycopg2.pool.ThreadedConnectionPool(1, 100, user=request.session['username'],
+                                                                         password=request.session['password'],
+                                                                         host=request.session['host'],
+                                                                         port=request.session['port'],
+                                                                         database=database)
+                    conn = postgres_pool.getconn()
+                except Exception as ex:
+                    print(ex)
+                column_list_of_table_query = """SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS 
+                                            WHERE TABLE_NAME = '%s'""" % (table)
             table_columns_list = []
             conn = makeconnection(request)
             cursor = conn.cursor()
             cursor.execute(column_list_of_table_query)
+            print('ok')
             for column in cursor.fetchall():
+                print(column)
                 column = column[0].strip()
                 table_columns_list.append(column)
             raw_header = list(raw_header)
@@ -723,101 +699,20 @@ def columnMatcher(request):
             # print('--==--==',raw_header, table_columns_list)
             cursor.close()
             conn.close()
-            return render(request, 'column_matcher.html',{'raw_header':raw_header, 'table_columns_list':table_columns_list})
+            return render(request, 'column_matcher.html', {'raw_header': raw_header, 'table_columns_list': table_columns_list})
         except Exception as ex:
+            print(ex)
             return JsonResponse({'error_rows': str(ex)})
 
-
-
-
-
-
-
-
-
-
-
-
-
-# table schema view
-# @login_required
-# def showTableColumns(request):
-
-#     if request.method == 'GET':
-#         try:
-#             conn = makeconnection(request)
-#             cursor = conn.cursor()
-#             tablename = request.GET.get('tablename')
-#             database = request.GET.get('database')
-#             database_type = request.session['database_type']
-#             if database_type == 'mysql':
-#                 select_query = "SHOW COLUMNS FROM %s;" % (tablename)
-#                 use_query = 'USE %s' % (database)
-#                 cursor.execute(use_query)
-#             elif database_type == 'postgres':
-#                 select_query = "SELECT column_name,data_type  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s';" % (
-#                     tablename)
-#             cursor.execute(select_query)
-#             column_list = []
-#             for row in cursor.fetchall():
-#                 column_list.append(row)
-#             cursor.close()
-#             conn.close()
-#             if database_type == 'mysql':
-#                 return render(request, 'tablecolumnsql.html', {'columns': column_list})
-#             elif database_type == 'postgres':
-#                 return render(request, 'tablecolumnpostgres.html', {'columns': column_list})
-#         except Exception as ex:
-#             if database_type == 'mysql':
-#                 return render(request, 'tablecolumnsql.html', {'columns': ''})
-#             elif database_type == 'postgres':
-#                 return render(request, 'tablecolumnpostgres.html', {'columns': ''})
-
-
-# def responseCsvHeader(request):
-#     if request.method == 'POST':
-#         try:
-#             conn = makeconnection(request)
-#             cursor = conn.cursor()
-#             tablename = request.POST.get('table')
-#             database = request.POST.get('database')
-#             # print(tablename, database)
-#             database_type = request.session['database_type']
-#             if database_type == 'mysql':
-#                 select_query = "SHOW COLUMNS FROM %s;" % (tablename)
-#                 use_query = 'USE %s' % (database)
-#                 cursor.execute(use_query)
-#             elif database_type == 'postgres':
-#                 select_query = "SELECT column_name,data_type  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s';" % (
-#                     tablename)
-#             cursor.execute(select_query)
-#             column_list = []
-#             for row in cursor.fetchall():
-#                 column_list.append(row)
-#             cursor.close()
-#             conn.close()
-#             csvfile = request.FILES.get('csvfile')
-#             if csvfile == None:
-#                 raise Exception('No file is Selected!!')
-#             user = pandas.read_csv(csvfile)
-#             header, raw_header, data = csvSplitter(user)
-#             raw_header =list(map(str.strip, raw_header))
-#             # print(raw_header)
-#             # return JsonResponse({'header_data':raw_header,'error_rows':''})
-#             if database_type == 'mysql':
-#                 return render(request, 'tablecolumnsql.html', {'columns': column_list, 'header_data':raw_header, 'error_rows':'None'})
-#             elif database_type == 'postgres':
-#                 return render(request, 'tablecolumnpostgres.html', {'columns': column_list, 'header_data':raw_header})
-#         except Exception as ex:
-#             print(ex)
-#             return JsonResponse({'error_rows':str(ex)})
 
 class FieldNotSet(Exception):
     def __init__(self, message, payload=None):
         self.message = message
-        self.payload = payload # you could add more args
+        self.payload = payload  # you could add more args
+
     def __str__(self):
         return str(self.message)
+
 
 def _async_raise(tid, exctype):
     """raises the exception, performs cleanup if needed"""
@@ -860,4 +755,3 @@ class Thread(threading.Thread):
         """raises SystemExit in the context of the given thread, which should 
         cause the thread to exit silently (unless caught)"""
         self.raise_exc(SystemExit)
-
