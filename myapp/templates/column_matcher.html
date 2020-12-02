@@ -17,19 +17,6 @@
     <div class="table-wrapper-scroll-y my-custom-scrollbar col-12">
         <table class="table border" style="max-width: max-content;">
             <tr>
-                <td><h6>CSV Headers</h6></td>
-                {% for header in raw_header %}
-                <td style="width: fit-content;">
-                    <select class="csv_header form-control" style="width: 150px;" name="header{{ forloop.counter}}" id="id_header{{ forloop.counter}}">
-                        <option value="None">Select Header</option>
-                        {% for option in raw_header %}
-                        <option value="{{option}}">{{option}}</option>
-                        {% endfor %}
-                    </select>
-                </td>
-                {% endfor %}
-            </tr>
-            <tr>
                 <td><h6>Table Columns</h6></td>
                 {% for header in raw_header %}
                 <td style="width: fit-content;">
@@ -42,6 +29,20 @@
                 </td>
                 {% endfor %}
             </tr>
+            <tr>
+                <td><h6>CSV Headers</h6></td>
+                {% for header in raw_header %}
+                <td style="width: fit-content;">
+                    <select class="csv_header form-control" style="width: 150px;" name="header{{ forloop.counter}}" id="id_header{{ forloop.counter}}">
+                        <option value="None">Select Header</option>
+                        {% for option in raw_header %}
+                        <option value="{{option}}">{{option}}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                {% endfor %}
+            </tr>
+           
         </table>
     </div>
 </div>
